@@ -4,14 +4,14 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_js_runtime'
-  s.version          = '0.0.1'
-  s.summary          = 'A new flutter plugin project.'
+  s.version          = '0.9.0'
+  s.summary          = 'Run JavaScript in Flutter apps.'
   s.description      = <<-DESC
-A new flutter plugin project.
+Run JavaScript in Flutter apps. Uses QuickJS on Android, Windows and Linux, and JavaScriptCore on iOS and macOS.
                        DESC
-  s.homepage         = 'http://example.com'
+  s.homepage         = 'https://github.com/WooSeongg/flutter_js_runtime'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
+  s.author           = { 'WS' => 'blb138@naver.com' }
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'
   s.dependency 'FlutterMacOS'

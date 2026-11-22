@@ -4,14 +4,14 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_js_runtime'
-  s.version          = '0.1.0'
-  s.summary          = 'A Javascript engine to use with flutter. It uses quickjs on Android and JavascriptCore on IOS'
+  s.version          = '0.9.0'
+  s.summary          = 'Run JavaScript in Flutter apps.'
   s.description      = <<-DESC
-A Javascript engine to use with flutter. It uses quickjs on Android and JavascriptCore on IOS
+Run JavaScript in Flutter apps. Uses QuickJS on Android, Windows and Linux, and JavaScriptCore on iOS and macOS.
                        DESC
-  s.homepage         = 'http://example.com'
+  s.homepage         = 'https://github.com/WooSeongg/flutter_js_runtime'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
+  s.author           = { 'WS' => 'blb138@naver.com' }
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'
