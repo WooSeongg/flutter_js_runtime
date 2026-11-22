@@ -23,7 +23,9 @@ void main() {
     print('${result.rawResult}, ${result.stringResult}');
     print(
         '${result.rawResult.runtimeType}, ${result.stringResult.runtimeType}');
-    expect(result.rawResult, equals(125));
+    // rawResult is engine-specific (QuickJS: Dart value, JavaScriptCore:
+    // JSValueRef pointer), so only the string form is asserted here.
+    expect(result.isError, isFalse);
     expect(result.stringResult, equals('125'));
   });
 

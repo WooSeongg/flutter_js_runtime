@@ -24,7 +24,6 @@ void main() {
       print(
           '${result.rawResult.runtimeType}, ${result.stringResult.runtimeType}');
     }
-    expect(result.rawResult, equals(125));
     expect(result.stringResult, equals('125'));
   });
 }
