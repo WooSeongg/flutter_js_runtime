@@ -2,16 +2,16 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
-import 'package:flutter_js/javascript_runtime.dart';
-import 'package:flutter_js/javascriptcore/jscore_runtime.dart';
+import 'package:flutter_js_runtime/javascript_runtime.dart';
+import 'package:flutter_js_runtime/javascriptcore/jscore_runtime.dart';
 
 import './extensions/fetch.dart';
 import './extensions/handle_promises.dart';
 import './quickjs/quickjs_runtime2.dart';
 
 export './extensions/handle_promises.dart';
-//import 'package:flutter_js/quickjs-sync-server/quickjs_oasis_jsbridge.dart';
-//import 'package:flutter_js/quickjs/quickjs_runtime.dart';
+//import 'package:flutter_js_runtime/quickjs-sync-server/quickjs_oasis_jsbridge.dart';
+//import 'package:flutter_js_runtime/quickjs/quickjs_runtime.dart';
 
 export './quickjs/quickjs_runtime.dart';
 export './quickjs/quickjs_runtime2.dart';
@@ -59,7 +59,7 @@ JavascriptRuntime getJavascriptRuntime({
 
 final Map<int?, FlutterJs> _engineMap = {};
 
-MethodChannel _methodChannel = const MethodChannel('io.abner.flutter_js')
+MethodChannel _methodChannel = const MethodChannel('io.github.wooseongg.flutter_js_runtime')
   ..setMethodCallHandler((MethodCall call) {
     if (call.method == "sendMessage") {
       final engineId = call.arguments[0] as int?;

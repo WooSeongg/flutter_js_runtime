@@ -3,15 +3,15 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
-import 'package:flutter_js/flutter_js.dart';
-import 'package:flutter_js/quickjs/utf8_null_terminated.dart';
+import 'package:flutter_js_runtime/flutter_js.dart';
+import 'package:flutter_js_runtime/quickjs/utf8_null_terminated.dart';
 
 import 'qjs_typedefs.dart';
 
 final DynamicLibrary qjsDynamicLibrary = Platform.isAndroid
     ? DynamicLibrary.open("libfastdev_quickjs_runtime.so")
     : (Platform.isWindows
-        ? DynamicLibrary.open('flutter_js_plugin.dll')
+        ? DynamicLibrary.open('flutter_js_runtime_plugin.dll')
         : DynamicLibrary.process());
 
 typedef FnBridgeCallback = Function(

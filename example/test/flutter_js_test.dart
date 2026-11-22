@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_js/flutter_js.dart';
+import 'package:flutter_js_runtime/flutter_js.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

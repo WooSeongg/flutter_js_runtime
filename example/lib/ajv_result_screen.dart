@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_js_example/json_viewer.dart';
+import 'package:flutter_js_runtime_example/json_viewer.dart';
 
 class AjvResultScreen extends StatelessWidget {
   const AjvResultScreen(this.jsonString, {super.key, this.notRoot = false});

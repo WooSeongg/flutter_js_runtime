@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter_js/javascript_runtime.dart';
-import 'package:flutter_js/js_eval_result.dart';
+import 'package:flutter_js_runtime/javascript_runtime.dart';
+import 'package:flutter_js_runtime/js_eval_result.dart';
 
 const REGISTER_PROMISE_FUNCTION = 'FLUTTER_NATIVEJS_REGISTER_PROMISE';
 

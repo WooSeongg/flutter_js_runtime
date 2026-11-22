@@ -7,7 +7,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
-import 'package:flutter_js/flutter_js.dart';
+import 'package:flutter_js_runtime/flutter_js.dart';
 
 import 'ffi.dart';
 

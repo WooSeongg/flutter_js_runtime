@@ -1,4 +1,4 @@
-package io.abner.flutter_js
+package io.github.wooseongg.flutter_js_runtime
 
 import android.util.Log
 //import de.prosiebensat1digital.oasisjsbridge.*

@@ -1,4 +1,4 @@
-#include "include/flutter_js/flutter_js_plugin.h"
+#include "include/flutter_js_runtime/flutter_js_runtime_plugin.h"
 
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
@@ -7,19 +7,19 @@
 
 #include <cstring>
 
-#define FLUTTER_JS_PLUGIN(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), flutter_js_plugin_get_type(), \
-                              FlutterJsPlugin))
+#define FLUTTER_JS_RUNTIME_PLUGIN(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), flutter_js_runtime_plugin_get_type(), \
+                              FlutterJsRuntimePlugin))
 
-struct _FlutterJsPlugin {
+struct _FlutterJsRuntimePlugin {
   GObject parent_instance;
 };
 
-G_DEFINE_TYPE(FlutterJsPlugin, flutter_js_plugin, g_object_get_type())
+G_DEFINE_TYPE(FlutterJsRuntimePlugin, flutter_js_runtime_plugin, g_object_get_type())
 
 // Called when a method call is received from Flutter.
-static void flutter_js_plugin_handle_method_call(
-    FlutterJsPlugin* self,
+static void flutter_js_runtime_plugin_handle_method_call(
+    FlutterJsRuntimePlugin* self,
     FlMethodCall* method_call) {
   g_autoptr(FlMethodResponse) response = nullptr;
 
@@ -38,20 +38,20 @@ static void flutter_js_plugin_handle_method_call(
   fl_method_call_respond(method_call, response, nullptr);
 }
 
-static void flutter_js_plugin_dispose(GObject* object) {
-  G_OBJECT_CLASS(flutter_js_plugin_parent_class)->dispose(object);
+static void flutter_js_runtime_plugin_dispose(GObject* object) {
+  G_OBJECT_CLASS(flutter_js_runtime_plugin_parent_class)->dispose(object);
 }
 
-static void flutter_js_plugin_class_init(FlutterJsPluginClass* klass) {
-  G_OBJECT_CLASS(klass)->dispose = flutter_js_plugin_dispose;
+static void flutter_js_runtime_plugin_class_init(FlutterJsRuntimePluginClass* klass) {
+  G_OBJECT_CLASS(klass)->dispose = flutter_js_runtime_plugin_dispose;
 }
 
-static void flutter_js_plugin_init(FlutterJsPlugin* self) {}
+static void flutter_js_runtime_plugin_init(FlutterJsRuntimePlugin* self) {}
 
 static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
                            gpointer user_data) {
-  FlutterJsPlugin* plugin = FLUTTER_JS_PLUGIN(user_data);
-  flutter_js_plugin_handle_method_call(plugin, method_call);
+  FlutterJsRuntimePlugin* plugin = FLUTTER_JS_RUNTIME_PLUGIN(user_data);
+  flutter_js_runtime_plugin_handle_method_call(plugin, method_call);
 }
 
 // Gets the directory the current executable is in, borrowed from:
@@ -72,14 +72,14 @@ static gchar* get_executable_dir() {
   return g_path_get_dirname(exe_path);
 }
 
-void flutter_js_plugin_register_with_registrar(FlPluginRegistrar* registrar) {
-  FlutterJsPlugin* plugin = FLUTTER_JS_PLUGIN(
-      g_object_new(flutter_js_plugin_get_type(), nullptr));
+void flutter_js_runtime_plugin_register_with_registrar(FlPluginRegistrar* registrar) {
+  FlutterJsRuntimePlugin* plugin = FLUTTER_JS_RUNTIME_PLUGIN(
+      g_object_new(flutter_js_runtime_plugin_get_type(), nullptr));
 
   g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
   g_autoptr(FlMethodChannel) channel =
       fl_method_channel_new(fl_plugin_registrar_get_messenger(registrar),
-                            "flutter_js",
+                            "flutter_js_runtime",
                             FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(channel, method_call_cb,
                                             g_object_ref(plugin),

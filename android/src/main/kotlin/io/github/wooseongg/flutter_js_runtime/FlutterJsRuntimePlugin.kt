@@ -1,4 +1,4 @@
-package io.abner.flutter_js
+package io.github.wooseongg.flutter_js_runtime
 
 import android.os.Build
 import android.util.Log
@@ -22,8 +22,8 @@ import kotlin.coroutines.suspendCoroutine
 
 data class MethodChannelResult(val success: Boolean, val data: Any? = null)
 
-/** FlutterJsPlugin */
-class FlutterJsPlugin : FlutterPlugin, MethodCallHandler {
+/** FlutterJsRuntimePlugin */
+class FlutterJsRuntimePlugin : FlutterPlugin, MethodCallHandler {
     private var applicationContext: android.content.Context? = null
     private var methodChannel: MethodChannel? = null
     //val flutterJsServer = FlutterJsServer()
@@ -33,7 +33,7 @@ class FlutterJsPlugin : FlutterPlugin, MethodCallHandler {
 
     private fun onAttachedToEngine(applicationContext: android.content.Context, messenger: BinaryMessenger) {
         this.applicationContext = applicationContext
-        methodChannel = MethodChannel(messenger, "io.abner.flutter_js")
+        methodChannel = MethodChannel(messenger, "io.github.wooseongg.flutter_js_runtime")
         methodChannel!!.setMethodCallHandler(this)
     }
 
@@ -193,7 +193,7 @@ class FlutterJsPlugin : FlutterPlugin, MethodCallHandler {
 //                 return newFixedLengthResponse(Response.Status.FORBIDDEN, MIME_PLAINTEXT, "Unauthorized")
 //             }
 //             val code = bodyMap["postData"]
-//             val evalResult = FlutterJsPlugin.jsEngineMap[engineId]!!.eval(code!!)
+//             val evalResult = FlutterJsRuntimePlugin.jsEngineMap[engineId]!!.eval(code!!)
 //             return newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, evalResult.toString())
 //         } catch (e: Exception) {
 //             return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_PLAINTEXT, "ERROR: ${e.message}")

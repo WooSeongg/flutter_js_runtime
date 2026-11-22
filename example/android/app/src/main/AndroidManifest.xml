@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="io.abner.flutter_js_example">
+    package="io.github.wooseongg.flutter_js_runtime_example">
    <application
-        android:label="flutter_js_example"
+        android:label="flutter_js_runtime_example"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

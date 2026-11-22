@@ -1,8 +1,8 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_js/flutter_js.dart';
-import 'package:flutter_js_example/ajv_example.dart';
+import 'package:flutter_js_runtime/flutter_js.dart';
+import 'package:flutter_js_runtime_example/ajv_example.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -124,7 +124,7 @@ class _FlutterJsHomeScreenState extends State<FlutterJsHomeScreen> {
             const Padding(
               padding: EdgeInsets.all(10),
               child: Text(
-                  'Click on the big JS Yellow Button to evaluate the expression bellow using the flutter_js plugin'),
+                  'Click on the big JS Yellow Button to evaluate the expression bellow using the flutter_js_runtime plugin'),
             ),
             const Padding(
               padding: EdgeInsets.all(8.0),
@@ -151,7 +151,7 @@ class _FlutterJsHomeScreenState extends State<FlutterJsHomeScreen> {
               child: const Text('Fetch Remote Data'),
               onPressed: () async {
                 var asyncResult = await javascriptRuntime.evaluateAsync("""
-                fetch('https://raw.githubusercontent.com/abner/flutter_js/master/FIXED_RESOURCE.txt').then(response => response.text());
+                fetch('https://raw.githubusercontent.com/WooSeongg/flutter_js_runtime/main/FIXED_RESOURCE.txt').then(response => response.text());
               """);
                 javascriptRuntime.executePendingJob();
                 final promiseResolved =

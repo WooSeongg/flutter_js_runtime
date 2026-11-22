@@ -1,10 +1,10 @@
 import Cocoa
 import FlutterMacOS
 
-public class FlutterJsPlugin: NSObject, FlutterPlugin {
+public class FlutterJsRuntimePlugin: NSObject, FlutterPlugin {
   public static func register(with registrar: FlutterPluginRegistrar) {
-    let channel = FlutterMethodChannel(name: "flutter_js", binaryMessenger: registrar.messenger)
-    let instance = FlutterJsPlugin()
+    let channel = FlutterMethodChannel(name: "flutter_js_runtime", binaryMessenger: registrar.messenger)
+    let instance = FlutterJsRuntimePlugin()
     registrar.addMethodCallDelegate(instance, channel: channel)
   }
 

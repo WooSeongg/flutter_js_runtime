@@ -1,4 +1,4 @@
-name: flutter_js
+name: flutter_js_runtime
 description: A Javascript engine to use with flutter.
   It uses Quickjs on Android and JavascriptCore on IOS
 version: 0.8.7
@@ -22,19 +22,16 @@ flutter:
   plugin:
     platforms:
       android:
-        package: io.abner.flutter_js
-        pluginClass: FlutterJsPlugin
+        package: io.github.wooseongg.flutter_js_runtime
+        pluginClass: FlutterJsRuntimePlugin
       ios:
-        pluginClass: FlutterJsPlugin
+        pluginClass: FlutterJsRuntimePlugin
       linux:
-        #default_package: flutter_js_linux_win
-        pluginClass: FlutterJsPlugin
+        pluginClass: FlutterJsRuntimePlugin
       macos:
-        pluginClass: FlutterJsPlugin
-      # windows:
-      #   default_package: flutter_js_linux_windows
+        pluginClass: FlutterJsRuntimePlugin
       windows:
-        pluginClass: FlutterJsPlugin
+        pluginClass: FlutterJsRuntimePlugin
 
   assets:
     - assets/js/

@@ -1,4 +1,4 @@
-#include "include/flutter_js/flutter_js_plugin.h"
+#include "include/flutter_js_runtime/flutter_js_runtime_plugin.h"
 
 // This must be included before many other Windows headers.
 #include <windows.h>
@@ -16,13 +16,13 @@
 
 namespace {
 
-class FlutterJsPlugin : public flutter::Plugin {
+class FlutterJsRuntimePlugin : public flutter::Plugin {
  public:
   static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
 
-  FlutterJsPlugin();
+  FlutterJsRuntimePlugin();
 
-  virtual ~FlutterJsPlugin();
+  virtual ~FlutterJsRuntimePlugin();
 
  private:
   // Called when a method is called on this plugin's channel from Dart.
@@ -32,14 +32,14 @@ class FlutterJsPlugin : public flutter::Plugin {
 };
 
 // static
-void FlutterJsPlugin::RegisterWithRegistrar(
+void FlutterJsRuntimePlugin::RegisterWithRegistrar(
     flutter::PluginRegistrarWindows *registrar) {
   auto channel =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-          registrar->messenger(), "flutter_js",
+          registrar->messenger(), "flutter_js_runtime",
           &flutter::StandardMethodCodec::GetInstance());
 
-  auto plugin = std::make_unique<FlutterJsPlugin>();
+  auto plugin = std::make_unique<FlutterJsRuntimePlugin>();
 
   channel->SetMethodCallHandler(
       [plugin_pointer = plugin.get()](const auto &call, auto result) {
@@ -49,11 +49,11 @@ void FlutterJsPlugin::RegisterWithRegistrar(
   registrar->AddPlugin(std::move(plugin));
 }
 
-FlutterJsPlugin::FlutterJsPlugin() {}
+FlutterJsRuntimePlugin::FlutterJsRuntimePlugin() {}
 
-FlutterJsPlugin::~FlutterJsPlugin() {}
+FlutterJsRuntimePlugin::~FlutterJsRuntimePlugin() {}
 
-void FlutterJsPlugin::HandleMethodCall(
+void FlutterJsRuntimePlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
   if (method_call.method_name().compare("getPlatformVersion") == 0) {
@@ -74,9 +74,9 @@ void FlutterJsPlugin::HandleMethodCall(
 
 }  // namespace
 
-void FlutterJsPluginRegisterWithRegistrar(
+void FlutterJsRuntimePluginRegisterWithRegistrar(
     FlutterDesktopPluginRegistrarRef registrar) {
-  FlutterJsPlugin::RegisterWithRegistrar(
+  FlutterJsRuntimePlugin::RegisterWithRegistrar(
       flutter::PluginRegistrarManager::GetInstance()
           ->GetRegistrar<flutter::PluginRegistrarWindows>(registrar));
 }

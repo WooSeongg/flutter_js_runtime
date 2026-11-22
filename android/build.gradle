@@ -1,4 +1,4 @@
-group 'io.abner.flutter_js'
+group 'io.github.wooseongg.flutter_js_runtime'
 version '1.0-SNAPSHOT'
 
 buildscript {
@@ -28,7 +28,7 @@ apply plugin: 'kotlin-android'
 android {
     compileSdkVersion 34
 
-    namespace "io.abner.flutter_js"
+    namespace "io.github.wooseongg.flutter_js_runtime"
 
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_1_8.toString()

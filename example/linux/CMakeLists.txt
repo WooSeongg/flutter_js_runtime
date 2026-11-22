@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(runner LANGUAGES CXX)
 
-set(BINARY_NAME "flutter_js_example")
-set(APPLICATION_ID "com.example.flutter_js2")
+set(BINARY_NAME "flutter_js_runtime_example")
+set(APPLICATION_ID "io.github.wooseongg.flutter_js_runtime_example")
 
 cmake_policy(SET CMP0063 NEW)
 

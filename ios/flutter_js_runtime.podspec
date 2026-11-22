@@ -1,9 +1,9 @@
 #
 # To learn more about a Podspec see http://guides.cocoapods.org/syntax/podspec.html.
-# Run `pod lib lint flutter_js.podspec' to validate before publishing.
+# Run `pod lib lint flutter_js_runtime.podspec' to validate before publishing.
 #
 Pod::Spec.new do |s|
-  s.name             = 'flutter_js'
+  s.name             = 'flutter_js_runtime'
   s.version          = '0.1.0'
   s.summary          = 'A Javascript engine to use with flutter. It uses quickjs on Android and JavascriptCore on IOS'
   s.description      = <<-DESC

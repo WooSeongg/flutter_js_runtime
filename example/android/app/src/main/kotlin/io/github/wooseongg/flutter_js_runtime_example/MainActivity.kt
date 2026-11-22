@@ -1,4 +1,4 @@
-package io.abner.flutter_js_example
+package io.github.wooseongg.flutter_js_runtime_example
 
 import io.flutter.embedding.android.FlutterActivity
 

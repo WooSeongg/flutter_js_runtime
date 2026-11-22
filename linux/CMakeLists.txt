@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 
-set(PROJECT_NAME "flutter_js")
+set(PROJECT_NAME "flutter_js_runtime")
 project(${PROJECT_NAME} LANGUAGES CXX C)
 
 set(PLUGIN_NAME "${PROJECT_NAME}_plugin")
@@ -11,7 +11,7 @@ set(CMAKE_CXX_COMPILER "g++")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -DANDROID_STL=c++_static -DDEBUGGER_SERVER_PORT=${DEBUGGER_SERVER_PORT}")
 
 add_library(${PLUGIN_NAME} SHARED
-  "flutter_js_plugin.cc"
+  "flutter_js_runtime_plugin.cc"
 )
 
 apply_standard_settings(${PLUGIN_NAME})
