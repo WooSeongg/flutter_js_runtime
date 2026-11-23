@@ -7,6 +7,13 @@ cd example
 flutter run
 ```
 
+On iOS and macOS the example uses Swift Package Manager. Flutter adds the
+plugin as a local Swift package named after the repository directory, so keep
+the checkout in a directory named `flutter_js_runtime` (for example, rename
+`flutter_js_runtime-main` after unpacking a GitHub ZIP). Otherwise the build
+fails with "unable to override package 'flutter_js_runtime' because its
+identity ... doesn't match".
+
 What it demonstrates:
 
 - Evaluating a JavaScript expression with `getJavascriptRuntime()` and `evaluateAsync`
