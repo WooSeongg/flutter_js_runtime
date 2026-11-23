@@ -1,3 +1,7 @@
+# 0.9.1
+
+- Replaced deprecated `Pointer.elementAt`. Requires Dart 3.3 / Flutter 3.19+.
+
 # 0.9.0
 
 First release as `flutter_js_runtime`, based on flutter_js 0.8.7.
