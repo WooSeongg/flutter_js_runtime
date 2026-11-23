@@ -2,7 +2,7 @@ name: flutter_js_runtime
 description: >-
   Run JavaScript in Flutter apps. Uses QuickJS on Android, Windows and Linux,
   and JavaScriptCore on iOS and macOS.
-version: 0.9.1
+version: 1.0.0
 homepage: https://github.com/WooSeongg/flutter_js_runtime
 repository: https://github.com/WooSeongg/flutter_js_runtime
 issue_tracker: https://github.com/WooSeongg/flutter_js_runtime/issues

@@ -23,8 +23,11 @@ keeps working after the [migration steps](#migrating-from-flutter_js) below.
 
 ```yaml
 dependencies:
-  flutter_js_runtime: ^0.9.0
+  flutter_js_runtime: ^1.0.0
 ```
+
+Version 1.x requires Flutter 3.44 / Dart 3.12 or newer. On older Flutter
+versions, use `flutter_js_runtime: ^0.9.0`.
 
 ## Usage
 
@@ -93,7 +96,7 @@ Do not use a runtime after disposing it.
 
    ```yaml
    dependencies:
-     flutter_js_runtime: ^0.9.0   # was: flutter_js
+     flutter_js_runtime: ^1.0.0   # was: flutter_js
    ```
 
 2. Replace the imports:

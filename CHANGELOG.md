@@ -1,3 +1,12 @@
+# 1.0.0
+
+- Added Swift Package Manager support on iOS and macOS. CocoaPods keeps working.
+- Android: migrated the plugin to built-in Kotlin (Android Gradle Plugin 9). Fixes the build failure and the "plugins that apply Kotlin Gradle Plugin" warning in apps created with current Flutter versions.
+- Requires Flutter 3.44 / Dart 3.12 or newer. Use 0.9.x on older Flutter versions.
+- Minimum deployment targets raised to iOS 13.0 and macOS 10.15 (the minimums of Flutter 3.44).
+- iOS: the plugin is now Swift-only. The Objective-C wrapper and the `SwiftFlutterJsRuntimePlugin` class were removed; the plugin class is `FlutterJsRuntimePlugin`.
+- Example app updated to the current Flutter Android and Xcode project setup, with an integration test.
+
 # 0.9.1
 
 - Replaced deprecated `Pointer.elementAt`. Requires Dart 3.3 / Flutter 3.19+.
