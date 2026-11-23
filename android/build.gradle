@@ -23,15 +23,15 @@ rootProject.allprojects {
 }
 
 apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
 
 android {
     compileSdkVersion 34
 
     namespace "io.github.wooseongg.flutter_js_runtime"
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8.toString()
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     // //quickjs C build disabled for now - crashing with SEGV_MAPERR on ARM based devices
@@ -60,9 +60,13 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    
     // implementation using platform-channel with oasis jsbridge
     // implementation 'com.github.p7s1digital.oasis-jsbridge-android:oasis-jsbridge-quickjs:0.12.0'
     // compile group: 'org.nanohttpd', name: 'nanohttpd', version: '2.3.0'

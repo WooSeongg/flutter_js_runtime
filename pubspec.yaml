@@ -9,8 +9,8 @@ issue_tracker: https://github.com/WooSeongg/flutter_js_runtime/issues
 topics: [javascript, js-engine, quickjs, javascriptcore, ffi]
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
-  flutter: ">=3.19.0"
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
 dependencies:
   flutter:
     sdk: flutter
