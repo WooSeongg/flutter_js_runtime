@@ -1,5 +1,6 @@
-// Shared helpers for tests that run `fetch` / `XMLHttpRequest` against a
-// local HTTP server. Not a test file itself (no `_test.dart` suffix).
+// Shared helpers for tests that run `fetch` / `XMLHttpRequest`, mostly
+// against a local HTTP server. Not a test file itself (no `_test.dart`
+// suffix).
 import 'dart:convert';
 import 'dart:io';
 
@@ -58,19 +59,21 @@ Future<int> closedPort() async {
   return port;
 }
 
-/// Runs `fetch(url).then(then)` on a fresh runtime and returns the settled
-/// outcome as JSON: `{"ok": <value>}` when it resolves, or
-/// `{"rejected": <reason instanceof TypeError>}` when it rejects.
+/// Evaluates [promiseExpr] (a JavaScript expression, usually a promise) on a
+/// fresh runtime and returns the settled outcome as JSON: `{"ok": <value>}`
+/// when it resolves, or `{"rejected": <reason instanceof TypeError>}` when it
+/// rejects. Fails the test when it does not settle within 3 seconds.
 ///
-/// Also fails the test if the response body ran as JavaScript (it sets
+/// Also fails the test if a response body ran as JavaScript (it sets
 /// `globalThis.injected` when it does).
-Future<String> fetchOutcome(String url, String then) async {
+Future<String> jsOutcome(String promiseExpr) async {
   final runtime = getJavascriptRuntime(xhr: false);
   await runtime.enableFetch();
-  runtime.evaluate('''globalThis.out = undefined;
-    fetch(${jsonEncode(url)}).then($then).then(
+  final started = runtime.evaluate('''globalThis.out = undefined;
+    Promise.resolve().then(() => ($promiseExpr)).then(
       v => { globalThis.out = JSON.stringify({ok: v}); },
       e => { globalThis.out = JSON.stringify({rejected: e instanceof TypeError}); });''');
+  expect(started.isError, isFalse, reason: started.stringResult);
   var out = 'undefined';
   for (var i = 0; i < 150 && out == 'undefined'; i++) {
     await Future.delayed(const Duration(milliseconds: 20));
@@ -80,5 +83,47 @@ Future<String> fetchOutcome(String url, String then) async {
   final injected = runtime.evaluate('String(globalThis.injected)').stringResult;
   runtime.dispose();
   expect(injected, 'undefined', reason: 'response body ran as JavaScript');
+  if (out == 'undefined') fail('JavaScript did not settle within 3 seconds');
   return out;
+}
+
+/// Runs `fetch(url).then(then)` and returns its [jsOutcome].
+Future<String> fetchOutcome(String url, String then) =>
+    jsOutcome('fetch(${jsonEncode(url)}).then($then)');
+
+/// Sends one XMLHttpRequest and returns the [jsOutcome] of `read(xhr, event)`,
+/// called on `loadend`. `event` is `'load'`, `'error'` or `'none'`.
+Future<String> xhrOutcome(String url, String read, {String method = 'GET'}) =>
+    jsOutcome('''new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      let event = 'none';
+      xhr.onload = () => { event = 'load'; };
+      xhr.onerror = () => { event = 'error'; };
+      xhr.onloadend = () => {
+        try { resolve(($read)(xhr, event)); } catch (e) { reject(e); }
+      };
+      xhr.open(${jsonEncode(method)}, ${jsonEncode(url)});
+      xhr.send();
+    })''');
+
+/// Feeds [responseInfo] (what the Dart side would send for a finished
+/// request) straight into a new XMLHttpRequest, without any network, and
+/// returns `JSON.stringify(read(xhr))`.
+///
+/// This reaches into the polyfill's private `_send_native_callback`; it is
+/// the only way to test header lists the real HTTP client never produces
+/// (mixed-case names, repeated names, malformed payloads).
+String xhrWithCannedResponse(Object? responseInfo, String read) {
+  final runtime = getJavascriptRuntime(xhr: false);
+  runtime.enableXhr();
+  final result = runtime.evaluate('''(() => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', 'http://unused.invalid/');
+    xhr.readyState = XMLHttpRequest.LOADING;
+    xhr._send_native_callback(${jsonEncode(responseInfo)}, 'body', null);
+    return JSON.stringify(($read)(xhr));
+  })()''');
+  runtime.dispose();
+  expect(result.isError, isFalse, reason: result.stringResult);
+  return result.stringResult;
 }

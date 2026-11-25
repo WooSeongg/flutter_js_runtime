@@ -2,6 +2,7 @@
 // Runs on the host engine (JavaScriptCore on macOS). Issue numbers refer to
 // https://github.com/abner/flutter_js/issues.
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,8 +22,23 @@ void main() {
       '/json': (r) => r.write(r'{"s":"line1\nline2"}'),
       '/missing': (r) => r
         ..statusCode = 404
+        ..headers.set('X-Why', 'gone')
         ..write('nf'),
       '/latin1': (r) => r.add([0x63, 0xff, 0x64]),
+      '/plain': (r) => r.write('x'),
+      '/headers': (r) => r
+        ..headers.contentType =
+            ContentType('application', 'json', charset: 'utf-8')
+        ..headers.set('X-Custom-Header', 'Hello')
+        ..headers.set('X-Url', 'http://example.com:8080/a?b=c')
+        ..headers.set('X-Empty', '')
+        ..write('{}'),
+      '/multi': (r) => r
+        ..headers.add('X-Multi', 'a')
+        ..headers.add('X-Multi', 'b')
+        ..headers.add('Set-Cookie', 'a=1; Path=/')
+        ..headers.add('Set-Cookie', 'b=2; Path=/')
+        ..write('x'),
     });
   });
 
@@ -71,5 +87,83 @@ void main() {
     final port = await closedPort();
     expect(await fetchOutcome('http://127.0.0.1:$port/', 'r => r.status'),
         jsonEncode({'rejected': true}));
+  });
+
+  group('response headers', () {
+    // Decoded `ok` value of fetch(path).then(then).
+    Future<dynamic> headersOf(String path, String then) async =>
+        jsonDecode(await fetchOutcome(server.url(path), then))['ok'];
+
+    test('get() returns the value, whatever the case of the name', () async {
+      expect(
+          await headersOf('/headers', '''r => ({
+            lower: r.headers.get('x-custom-header'),
+            upper: r.headers.get('X-CUSTOM-HEADER'),
+            type: r.headers.get('Content-Type')})'''),
+          {
+            'lower': 'Hello',
+            'upper': 'Hello',
+            'type': 'application/json; charset=utf-8'
+          });
+    });
+
+    test('has() is true only for headers in the response', () async {
+      expect(
+          await headersOf('/headers', '''r => ({
+            yes: r.headers.has('X-Custom-Header'),
+            no: r.headers.has('x-nope'),
+            getMissing: r.headers.get('x-nope') == null})'''),
+          {'yes': true, 'no': false, 'getMissing': true});
+    });
+
+    test('keys() and entries() list the real names in lower case', () async {
+      final headers = await headersOf('/headers',
+          'r => ({keys: r.headers.keys(), entries: r.headers.entries()})');
+      expect(headers['keys'], containsAll(['x-custom-header', 'content-type']));
+      expect(headers['keys'], everyElement(matches(RegExp(r'^[a-z0-9-]+$'))));
+      expect(
+          headers['entries'], contains(equals(['x-custom-header', 'Hello'])));
+      expect(headers['entries'], hasLength((headers['keys'] as List).length));
+    });
+
+    test('a value with colons and an empty value', () async {
+      expect(
+          await headersOf('/headers', '''r => ({
+            url: r.headers.get('x-url'),
+            empty: r.headers.get('x-empty'),
+            hasEmpty: r.headers.has('x-empty')})'''),
+          {
+            'url': 'http://example.com:8080/a?b=c',
+            'empty': '',
+            'hasEmpty': true
+          });
+    });
+
+    test('repeated headers arrive as one comma-separated value', () async {
+      final headers = await headersOf('/multi', '''r => ({
+        multi: r.headers.get('x-multi'),
+        cookie: r.headers.get('set-cookie'),
+        cookieKeys: r.headers.keys().filter(k => k === 'set-cookie').length})''');
+      // The separator (',' or ', ') depends on how the server folds them.
+      expect((headers['multi'] as String).split(',').map((v) => v.trim()),
+          ['a', 'b']);
+      expect(headers['cookie'], allOf(contains('a=1'), contains('b=2')));
+      expect(headers['cookieKeys'], 1);
+    });
+
+    test('a response without custom headers has no made-up names', () async {
+      final headers = await headersOf('/plain',
+          "r => ({keys: r.headers.keys(), type: r.headers.get('content-type')})");
+      expect(headers['keys'], isNot(anyOf(contains('['), contains(']'))));
+      expect(headers['keys'], everyElement(matches(RegExp(r'^[a-z0-9-]+$'))));
+      expect(headers['type'], startsWith('text/plain'));
+    });
+
+    test('headers of an error status are readable', () async {
+      expect(
+          await headersOf('/missing',
+              "r => ({status: r.status, why: r.headers.get('x-why')})"),
+          {'status': 404, 'why': 'gone'});
+    });
   });
 }

@@ -80,6 +80,8 @@ XMLHttpRequest.prototype.constructor = XMLHttpRequest;
 XMLHttpRequest.prototype.open = function(httpMethod, url) {
   this._httpMethod = httpMethod;
   this._url = url;
+  // Headers of a previous response must not show on a reused request.
+  this._responseHeaders = [];
   this.readyState = XMLHttpRequest.OPENED;
   if (typeof this.onreadystatechange === "function") {
     //console.log("Calling onreadystatechange(OPENED)...");
@@ -126,7 +128,16 @@ XMLHttpRequest.prototype._send_native_callback = function(responseInfo, response
   this.responseURL = this._url;
   this.status = responseInfo.statusCode;
   this.statusText = responseInfo.statusText;
-  this._responseHeaders = responseInfo.responseHeaders || [];
+  // Stored as [lower-cased name, value] pairs; anything else is ignored.
+  this._responseHeaders = [];
+  var rawHeaders = responseInfo.responseHeaders;
+  if (Array.isArray(rawHeaders)) {
+    for (var h = 0; h < rawHeaders.length; h++) {
+      var pair = rawHeaders[h];
+      if (!Array.isArray(pair) || pair.length < 2) continue;
+      this._responseHeaders.push([String(pair[0]).toLowerCase(), String(pair[1])]);
+    }
+  }
   this.readyState = XMLHttpRequest.DONE;
   // Response
   this.response = null;
@@ -196,21 +207,42 @@ XMLHttpRequest.prototype._send_native_callback = function(responseInfo, response
 XMLHttpRequest.prototype.setRequestHeader = function(header, value) {
   this._requestHeaders.push([header, value]);
 };
+// As in browsers: lower-cased names sorted by their upper-cased form, one
+// "name: value" line per name (repeated names combined with ", "), each line
+// ending in CRLF.
 XMLHttpRequest.prototype.getAllResponseHeaders = function() {
-  var ret = "";
-  for (var i = 0; i < this._responseHeaders.length; i++) {
+  var items = [];
+  var i;
+  for (i = 0; i < this._responseHeaders.length; i++) {
     var keyValue = this._responseHeaders[i];
-    ret += keyValue[0] + ": " + keyValue[1] + "\\r\\n";
+    items.push({ name: keyValue[0], key: keyValue[0].toUpperCase(), value: keyValue[1], index: i });
+  }
+  // Ties go to the name first, so equal names always end up adjacent.
+  items.sort(function(a, b) {
+    if (a.key !== b.key) return a.key < b.key ? -1 : 1;
+    if (a.name !== b.name) return a.name < b.name ? -1 : 1;
+    return a.index - b.index;
+  });
+  var ret = "";
+  for (i = 0; i < items.length; i++) {
+    var value = items[i].value;
+    while (i + 1 < items.length && items[i + 1].name === items[i].name) {
+      i++;
+      value += ", " + items[i].value;
+    }
+    ret += items[i].name + ": " + value + "\\r\\n";
   }
   return ret;
 };
+// The name is matched case-insensitively. Returns null when the response
+// has no such header (an empty header value is returned as "").
 XMLHttpRequest.prototype.getResponseHeader = function(name) {
-  var ret = "";
+  var wanted = String(name).toLowerCase();
+  var ret = null;
   for (var i = 0; i < this._responseHeaders.length; i++) {
     var keyValue = this._responseHeaders[i];
-    if (keyValue[0] !== name) continue;
-    if (ret === "") ret += ", ";
-    ret += keyValue[1];
+    if (keyValue[0] !== wanted) continue;
+    ret = ret === null ? keyValue[1] : ret + ", " + keyValue[1];
   }
   return ret;
 };
@@ -351,14 +383,17 @@ extension JavascriptRuntimeXhrExtension on JavascriptRuntime {
         // Malformed UTF-8 is replaced with U+FFFD instead of throwing.
         final responseText =
             utf8.decode(response.bodyBytes, allowMalformed: true);
+        final responseInfo = XhtmlHttpResponseInfo(
+          statusCode: response.statusCode,
+          statusText: response.reasonPhrase ?? '',
+        );
+        // Copied as received; the JavaScript side normalizes the names.
+        response.headers.forEach(responseInfo.addResponseHeaders);
         _sendXhrResult(
           pendingCall.idRequest,
           XmlHttpRequestResponse(
             responseText: responseText,
-            responseInfo: XhtmlHttpResponseInfo(
-              statusCode: response.statusCode,
-              statusText: response.reasonPhrase ?? '',
-            ),
+            responseInfo: responseInfo,
           ),
         );
       });
@@ -447,7 +482,7 @@ class XhtmlHttpResponseInfo {
     return {
       "statusCode": statusCode,
       "statusText": statusText,
-      "responseHeaders": jsonEncode(responseHeaders)
+      "responseHeaders": responseHeaders
     };
   }
 }
