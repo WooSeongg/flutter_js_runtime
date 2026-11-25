@@ -12,7 +12,7 @@ Bug fixes only; no API changes. Issue numbers refer to flutter_js.
 **Runtime**
 
 - `dispose()` cancels the runtime's timers and frees it; before, they kept running and leaked the runtime (#168, #37). It is safe to call twice, right after creation, and inside an `onMessage` handler. Work still pending is dropped.
-- `evaluate` no longer leaks memory on every call, on both engines (#168).
+- Fixed memory leaks in `evaluate` (#168): on Android, Windows and Linux for every call, and on iOS and macOS for calls that return a number or a string.
 - `setTimeout` works with delays such as `10.5` or `"10"` (#62).
 - `handlePromise` no longer overwrites a global named `idx`.
 
