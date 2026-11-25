@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_js_runtime'
-  s.version          = '1.0.0'
+  s.version          = '1.0.1'
   s.summary          = 'Run JavaScript in Flutter apps.'
   s.description      = <<-DESC
 Run JavaScript in Flutter apps. Uses QuickJS on Android, Windows and Linux, and JavaScriptCore on iOS and macOS.

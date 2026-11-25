@@ -1,18 +1,30 @@
-# Unreleased
+# 1.0.1
 
-- `fetch` / `XMLHttpRequest`: the response body is now passed to JavaScript as data. Before, it was pasted into evaluated source code, so bodies containing `` ` ``, `\` or `${...}` broke the request (it never settled) or ran as JavaScript, and `json()` returned a string for JSON with escaped characters (#135, #80 in flutter_js). The body is also no longer re-serialized when it is JSON.
-- `fetch` / `XMLHttpRequest`: report the real HTTP status and status text instead of always `200 OK` (#175 in flutter_js).
-- `fetch` / `XMLHttpRequest`: network failures now fire `onerror` (status `0`) and reject the `fetch` promise with a `TypeError` instead of never settling, so `handlePromise` also fails instead of waiting forever. Response bodies that are not valid UTF-8 no longer hang the request (invalid bytes become U+FFFD) (#137 in flutter_js).
-- `fetch` / `XMLHttpRequest`: response headers now reach JavaScript. Before, `getAllResponseHeaders()` returned `"[: undefined\r\n]: undefined\r\n"`, `getResponseHeader()` returned `""` for every header, and `fetch`'s `res.headers` only had the keys `[` and `]`. Header names are lower-case and matched case-insensitively, and `getAllResponseHeaders()` lists them sorted, as in browsers. `getResponseHeader()` returns `null` (no longer `""`) for a header that is not in the response. Repeated headers arrive as one value joined the way the HTTP client joins them (`,` without a space with the default client; browsers use `, `). Unlike in browsers, `Set-Cookie` is readable; several cookies arrive joined by `,`. `XhtmlHttpResponseInfo.toJson()` now gives `responseHeaders` as a list of `[name, value]` pairs instead of a JSON-encoded string.
-- `fetch` / `XMLHttpRequest`: a `POST`, `PUT` or `PATCH` without a body no longer sends the text `null` as its body. Methods other than GET/POST/PUT/PATCH/DELETE/HEAD (such as `OPTIONS`) are sent instead of leaving the request pending forever, and so are header values that are not strings. An `XMLHttpRequest` body that is not a string is sent as `String(body)`, as in browsers; binary bodies (`ArrayBuffer`, typed arrays) are not supported and now fail with `onerror` instead of leaving the request pending. Finished requests are no longer kept in the global `xhrRequests` table.
-- `setTimeout`: a delay that is not an integer (`10.5`, `"10"`) no longer drops the callback; the delay is converted with `Number()` and truncated (#62 in flutter_js).
-- `handlePromise` no longer overwrites a global variable named `idx`.
-- iOS, macOS (JavaScriptCore): calling `sendMessage` from JavaScript with fewer than two arguments throws an error instead of crashing the app. `evaluate` no longer leaks memory on every call (a copy of the script plus small native buffers). A failing async `onMessage` handler now rejects the JavaScript promise even when the error text contains quotes or line breaks. `convertValue` returns a `double` for `NaN`, `Infinity` and numbers in exponent notation instead of throwing a `FormatException`.
-- `dispose()` now cancels the timers a runtime started (`setTimeout`, the `XMLHttpRequest` poll, `handlePromise` polls) and removes the runtime from `JavascriptRuntime.channelFunctionsRegistered`. Before, they kept running and kept the runtime in memory (#168, #37 in flutter_js). Work still pending at `dispose()` is dropped: a timeout does not fire, a response or the fetch polyfill arriving later is ignored, and a `handlePromise` future being awaited never completes (with a `timeout` it fails with a `TimeoutException`). A runtime now keeps its own handler map: replacing its entry in `channelFunctionsRegistered` with another map has no effect (changing the entry's map in place still works).
-- `dispose()` can be called twice, right after `getJavascriptRuntime()`, and from inside an `onMessage` handler. Each of these crashed the app on iOS/macOS; the last one also on Android.
-- iOS, macOS (JavaScriptCore): using a runtime after `dispose()` (`evaluate`, `callFunction`, `convertValue`, `jsonStringify`) throws a `StateError` instead of crashing. With several runtimes alive, `sendMessage` (and with it `console.log`, `setTimeout`, `fetch`) reached the handlers of the runtime created last; each runtime now gets its own messages.
-- Android, Windows, Linux (QuickJS): `evaluate` and function calls no longer leak memory on every call (messages piled up on the runtime's `port` when nothing listened to it; they are now dropped unless the port has a listener).
-- Android, Windows, Linux (QuickJS): `evaluate` now sets `isPromise` for promise results (#155 in flutter_js), uses `sourceUrl` as the file name in error stacks (#146 in flutter_js), and `convertValue` returns the evaluated value instead of always `true`, with the same shapes as on JavaScriptCore (whole numbers as `int`, objects as `Map<String, dynamic>`, `null` for a number that does not fit `T`) (#101 in flutter_js).
+Bug fixes only; no API changes. Issue numbers refer to flutter_js.
+
+**fetch / XMLHttpRequest**
+
+- Response bodies are passed as data. Bodies containing `` ` ``, `\` or `${...}` broke the request or ran as JavaScript (#135, #80).
+- The real HTTP status is reported instead of always `200 OK` (#175), and response headers are available (`getResponseHeader()` returns `null` for a missing header).
+- Network failures reject with a `TypeError` and non-UTF-8 bodies no longer hang the request (#137).
+- `POST`/`PUT`/`PATCH` without a body no longer send `null`. Other methods (`OPTIONS`, ...) and non-string header values or bodies are sent instead of hanging. Binary bodies are not supported and fail with `onerror`.
+
+**Runtime**
+
+- `dispose()` cancels the runtime's timers and frees it; before, they kept running and leaked the runtime (#168, #37). It is safe to call twice, right after creation, and inside an `onMessage` handler. Work still pending is dropped.
+- `evaluate` no longer leaks memory on every call, on both engines (#168).
+- `setTimeout` works with delays such as `10.5` or `"10"` (#62).
+- `handlePromise` no longer overwrites a global named `idx`.
+
+**iOS, macOS (JavaScriptCore)**
+
+- Fixed crashes: `sendMessage` called with fewer than two arguments, and using a runtime after `dispose()` (now a `StateError`).
+- With several runtimes, each one receives its own messages (`console.log`, `setTimeout`, `fetch`).
+- A failing async `onMessage` handler rejects the JavaScript promise. `convertValue` handles `NaN`, `Infinity` and exponent notation.
+
+**Android, Windows, Linux (QuickJS)**
+
+- `evaluate` sets `isPromise` (#155) and uses `sourceUrl` in error stacks (#146). `convertValue` returns the value instead of `true` (#101).
 
 # 1.0.0
 

@@ -27,3 +27,9 @@ The full text of every license listed below is in [LICENSE](LICENSE).
   part of flutter_js under the MIT License. They contain QuickJS (see above).
   The quickjs-c-bridge repository itself has no license file, so its source
   code is not copied into this project.
+- **Modified sources.** The code taken from flutter_qjs, flutter_jscore and
+  unfetch was changed in flutter_js and again in this project (bug fixes; see
+  [CHANGELOG.md](CHANGELOG.md)). In `assets/js/fetch.js`, flutter_js made
+  `json()` return the text when it is not valid JSON and accept request
+  headers given as an iterable; this project makes a network failure reject
+  with a `TypeError`.
