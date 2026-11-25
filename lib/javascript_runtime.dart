@@ -132,7 +132,7 @@ abstract class JavascriptRuntime {
           ;
           // console.log(typeof(sendMessage));
           // console.log('BLA');
-          sendMessage('SetTimeout', JSON.stringify({ timeoutIndex, timeout}));
+          sendMessage('SetTimeout', JSON.stringify({ timeoutIndex, timeout: Number(timeout) }));
             
         } catch (e) {
           console.error('ERROR HERE',e.message);
@@ -143,7 +143,17 @@ abstract class JavascriptRuntime {
     //print('SET TIMEOUT EVAL RESULT: $setTImeoutResult');
     onMessage('SetTimeout', (dynamic args) {
       try {
-        int duration = args['timeout'] ?? 0;
+        // As in browsers: the delay is converted to a number and truncated;
+        // anything that is not a finite number counts as 0.
+        final rawDelay = args['timeout'];
+        final num delay = rawDelay is num
+            ? rawDelay
+            : rawDelay is String
+                ? (num.tryParse(rawDelay.trim()) ?? 0)
+                : rawDelay == true
+                    ? 1
+                    : 0;
+        int duration = delay.isFinite ? delay.toInt() : 0;
         String idx = args['timeoutIndex'];
 
         Timer(Duration(milliseconds: duration), () {

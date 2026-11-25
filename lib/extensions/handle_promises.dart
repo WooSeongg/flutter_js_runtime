@@ -13,7 +13,7 @@ extension HandlePromises on JavascriptRuntime {
 
       function $REGISTER_PROMISE_FUNCTION(promise) {
         FLUTTER_NATIVEJS_PENDING_PROMISES_COUNT += 1;
-        idx = FLUTTER_NATIVEJS_PENDING_PROMISES_COUNT;
+        var idx = FLUTTER_NATIVEJS_PENDING_PROMISES_COUNT;
         FLUTTER_NATIVEJS_PENDING_PROMISES[idx] = FLUTTER_NATIVEJS_MakeQuerablePromise(promise);
         return idx;
       }
