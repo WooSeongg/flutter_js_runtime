@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
@@ -10,6 +11,7 @@ import 'package:flutter_js_runtime/javascriptcore/binding/js_object_ref.dart'
 import 'package:flutter_js_runtime/javascriptcore/flutter_jscore.dart';
 import 'package:flutter_js_runtime/javascriptcore/jscore_bindings.dart';
 import 'package:flutter_js_runtime/js_eval_result.dart';
+import 'package:flutter_js_runtime/src/runtime_lifecycle.dart';
 
 class JavascriptCoreRuntime extends JavascriptRuntime {
   late Pointer _contextGroup;
@@ -18,6 +20,7 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
   late Pointer _globalObject;
 
   int executePendingJob() {
+    if (isRuntimeDisposed(this)) return 0;
     evaluate('(function(){})();');
     return 0;
   }
@@ -30,9 +33,11 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
     _globalContext = jSGlobalContextCreateInGroup(_contextGroup, nullptr);
     _globalObject = jSContextGetGlobalObject(_globalContext);
 
-    context = JSContext(_globalContext);
+    context = _RuntimeJSContext(this, _globalContext);
 
-    _sendMessageDartFunc = _sendMessage;
+    // The native callback is one static function for every runtime; this is
+    // how it finds the runtime a call belongs to.
+    _instances[_globalContext.address] = this;
 
     Pointer<Utf8> funcNameCString = 'sendMessage'.toNativeUtf8();
     final funcNameJsString = jSStringCreateWithUTF8CString(funcNameCString);
@@ -55,11 +60,13 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
 
   @override
   void initChannelFunctions() {
-    JavascriptRuntime.channelFunctionsRegistered[getEngineInstanceId()] = {};
+    JavascriptRuntime.channelFunctionsRegistered[getEngineInstanceId()] =
+        runtimeChannels(this);
   }
 
   @override
   JsEvalResult evaluate(String js, {String? sourceUrl}) {
+    checkRuntimeNotDisposed(this);
     Pointer<Utf8> scriptCString = js.toNativeUtf8();
     Pointer<Utf8>? sourceUrlCString = sourceUrl?.toNativeUtf8();
 
@@ -111,6 +118,24 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
 
   @override
   void dispose() {
+    if (!markRuntimeDisposed(this)) return;
+    _instances.remove(_globalContext.address);
+    // When a channel handler disposes the runtime, JavaScript of this
+    // context is still running: release it once the stack has unwound.
+    if (_callbackDepth > 0) {
+      scheduleMicrotask(_release);
+    } else {
+      _release();
+    }
+  }
+
+  /// How many native sendMessage callbacks of this runtime are running.
+  int _callbackDepth = 0;
+  bool _released = false;
+
+  void _release() {
+    if (_released) return;
+    _released = true;
     jSGlobalContextRelease(_globalContext);
     jSContextGroupRelease(_contextGroup);
   }
@@ -121,6 +146,7 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
   /// Works only for iOS & MacOS.
   @override
   void setInspectable(bool inspectable) {
+    checkRuntimeNotDisposed(this);
     if (Platform.isIOS || Platform.isMacOS) {
       try {
         context.setInspectable(inspectable);
@@ -132,8 +158,7 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
 
   @override
   bool setupBridge(String channelName, Function(dynamic args) fn) {
-    final channelFunctionCallbacks =
-        JavascriptRuntime.channelFunctionsRegistered[getEngineInstanceId()]!;
+    final channelFunctionCallbacks = runtimeChannels(this);
 
     if (channelFunctionCallbacks.keys.contains(channelName)) return false;
 
@@ -149,11 +174,17 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
       int argumentCount,
       Pointer<Pointer> arguments,
       Pointer<Pointer> exception) {
-    if (_sendMessageDartFunc != null) {
-      return _sendMessageDartFunc!(
+    final runtime = _instances[ctx.address] ??
+        _instances[jSContextGetGlobalContext(ctx).address];
+    // A call from a disposed (or unknown) runtime is dropped.
+    if (runtime == null || isRuntimeDisposed(runtime)) return nullptr;
+    runtime._callbackDepth++;
+    try {
+      return runtime._sendMessage(
           ctx, function, thisObject, argumentCount, arguments, exception);
+    } finally {
+      runtime._callbackDepth--;
     }
-    return nullptr;
   }
 
   String _getJsValue(Pointer jsValueRef) {
@@ -177,7 +208,8 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
     return result;
   }
 
-  static jsObject.JSObjectCallAsFunctionCallbackDart? _sendMessageDartFunc;
+  /// Live runtimes by the address of their global context.
+  static final Map<int, JavascriptCoreRuntime> _instances = {};
 
   Pointer _sendMessage(
       Pointer ctx,
@@ -193,14 +225,15 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
           'sendMessage requires 2 arguments: (channelName, message)');
       return nullptr;
     }
-    final channelFunctions =
-        JavascriptRuntime.channelFunctionsRegistered[getEngineInstanceId()]!;
+    final channelFunctions = runtimeChannels(this);
 
     String channelName = _getJsValue(arguments[0]);
     String message = _getJsValue(arguments[1]);
 
     if (channelFunctions.containsKey(channelName)) {
       final result = channelFunctions[channelName]!.call(jsonDecode(message));
+      // The handler may have disposed this runtime.
+      if (isRuntimeDisposed(this)) return nullptr;
       try {
         if (result is Future) {
           return _constructPromiseFor(result);
@@ -246,10 +279,12 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
     calloc.free(scriptCString);
 
     future.then((value) {
+      if (isRuntimeDisposed(this)) return;
       final encoded = json.encode(value);
       evaluate(
           '__JSC_promise_result$id.resolve($encoded); __JSC_promise_result$id = null;');
     }).catchError((error) {
+      if (isRuntimeDisposed(this)) return;
       evaluate(
           '__JSC_promise_result$id.reject(${json.encode(error.toString())}); __JSC_promise_result$id = null;');
     });
@@ -258,6 +293,7 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
 
   @override
   JsEvalResult callFunction(Pointer<NativeType>? fn, Pointer<NativeType>? obj) {
+    checkRuntimeNotDisposed(this);
     JSValue fnValue = JSValue(context, fn ?? nullptr);
     JSObject functionObj = fnValue.toObject();
     JSValuePointer exception = JSValuePointer();
@@ -293,6 +329,7 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
 
   @override
   T? convertValue<T>(JsEvalResult jsValue) {
+    checkRuntimeNotDisposed(this);
     if (jSValueIsNull(_globalContext, jsValue.rawResult) == 1) {
       return null;
     } else if (jSValueIsString(_globalContext, jsValue.rawResult) == 1) {
@@ -324,6 +361,7 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
 
   @override
   String jsonStringify(JsEvalResult jsValue) {
+    checkRuntimeNotDisposed(this);
     JSValue objValue = JSValue(context, jsValue.rawResult);
     return objValue.createJSONString().string!;
   }
@@ -331,5 +369,27 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
   @override
   Future<JsEvalResult> evaluateAsync(String code, {String? sourceUrl}) {
     return Future.value(evaluate(code, sourceUrl: sourceUrl));
+  }
+}
+
+/// The [JavascriptCoreRuntime.context]: refuses to hand out the context
+/// pointer once the runtime has released it.
+class _RuntimeJSContext extends JSContext {
+  final JavascriptCoreRuntime _runtime;
+
+  _RuntimeJSContext(this._runtime, Pointer pointer) : super(pointer);
+
+  @override
+  Pointer get pointer {
+    if (_runtime._released) {
+      throw StateError('JavascriptRuntime used after dispose()');
+    }
+    return super.pointer;
+  }
+
+  @override
+  void setInspectable(bool inspectable) {
+    pointer; // throws once released
+    super.setInspectable(inspectable);
   }
 }

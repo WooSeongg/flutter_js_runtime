@@ -71,9 +71,8 @@ runtime.evaluate("sendMessage('greeting', JSON.stringify({name: 'Flutter'}));");
 ### fetch and XMLHttpRequest
 
 `getJavascriptRuntime()` enables `fetch` and `XMLHttpRequest` by default
-(`xhr: true`), loading the polyfill in the background. Do not `dispose()` such
-a runtime immediately after creating it; if you need `fetch` right away,
-create the runtime with `xhr: false` and await `enableFetch()`:
+(`xhr: true`), loading the polyfill in the background. If you need `fetch`
+right away, create the runtime with `xhr: false` and await `enableFetch()`:
 
 ```dart
 import 'package:flutter_js_runtime/extensions/fetch.dart';
@@ -88,7 +87,13 @@ await runtime.enableFetch();
 runtime.dispose();
 ```
 
-Do not use a runtime after disposing it.
+`dispose()` cancels the runtime's timers and drops work that is still
+pending (timeouts, responses of requests in flight, promises being awaited
+with `handlePromise`). It may be called more than once, and from inside an
+`onMessage` handler.
+
+Do not use a runtime after disposing it. On iOS and macOS that throws a
+`StateError`.
 
 ## Migrating from flutter_js
 

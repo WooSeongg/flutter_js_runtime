@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_js_runtime/javascript_runtime.dart';
+import 'package:flutter_js_runtime/src/runtime_lifecycle.dart';
 import 'package:http/http.dart' as http;
 
 /*
@@ -301,6 +302,8 @@ extension JavascriptRuntimeXhrExtension on JavascriptRuntime {
   /// Values are passed as JSON literals so the response body is never
   /// interpreted as JavaScript source.
   void _sendXhrResult(int? idRequest, XmlHttpRequestResponse result) {
+    // A response that arrives after dispose() has nowhere to go.
+    if (isRuntimeDisposed(this)) return;
     final responseInfo = jsonEncode(result.responseInfo);
     final responseText = jsonEncode(result.responseText);
     final error = jsonEncode(result.error);
@@ -313,7 +316,7 @@ extension JavascriptRuntimeXhrExtension on JavascriptRuntime {
     httpClient = httpClient ?? http.Client();
     dartContext[XHR_PENDING_CALLS_KEY] = [];
 
-    Timer.periodic(Duration(milliseconds: 40), (timer) {
+    ownRuntimeTimer(this, Timer.periodic(Duration(milliseconds: 40), (timer) {
       // exits if there is no pending call to remote
       if (!hasPendingXhrCalls()) return;
 
@@ -416,7 +419,7 @@ extension JavascriptRuntimeXhrExtension on JavascriptRuntime {
           ),
         );
       });
-    });
+    }));
 
     final evalXhrSendNative = this.evaluate("""
     var xhrRequests = {};

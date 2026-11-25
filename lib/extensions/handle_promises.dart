@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_js_runtime/javascript_runtime.dart';
 import 'package:flutter_js_runtime/js_eval_result.dart';
+import 'package:flutter_js_runtime/src/runtime_lifecycle.dart';
 
 const REGISTER_PROMISE_FUNCTION = 'FLUTTER_NATIVEJS_REGISTER_PROMISE';
 
@@ -105,10 +106,13 @@ extension HandlePromises on JavascriptRuntime {
       JsEvalResult value, Completer completer) async {
     if (value.stringResult.contains('Instance of \'Future')) {
       var completed = false;
+      // A QuickJS runtime that was already disposed (and re-created by a
+      // later evaluate) keeps polling as it always did.
+      final disposedAtStart = isRuntimeDisposed(this);
       Function? fnEvaluatePromise;
       fnEvaluatePromise = () async {
         this.executePendingJob();
-        if (!completed) {
+        if (!completed && (disposedAtStart || !isRuntimeDisposed(this))) {
           await Future.delayed(
               Duration(milliseconds: 20), () => fnEvaluatePromise!.call());
         } else {
@@ -139,7 +143,7 @@ extension HandlePromises on JavascriptRuntime {
     final promiseQuerableIdx =
         callFunction(evalRegisterPromise, value.rawResult).stringResult;
     int idxPromise = int.parse(promiseQuerableIdx);
-    Timer.periodic(Duration(milliseconds: 20), (timer) {
+    ownRuntimeTimer(this, Timer.periodic(Duration(milliseconds: 20), (timer) {
       // call to _JS_ExecutePendingJob
       this.executePendingJob();
       //eval(REGISTER_PROMISE_FUNCTION);
@@ -165,7 +169,7 @@ extension HandlePromises on JavascriptRuntime {
           completer.completeError(value);
         }
       }
-    });
+    }));
     return completer.future as Future<JsEvalResult>;
   }
 }

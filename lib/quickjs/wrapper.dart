@@ -81,8 +81,10 @@ Pointer<JSValue> _dartToJs(Pointer<JSContext> ctx, dynamic val,
     res.free();
     rej.free();
     val.then((value) {
+      if (res._ctx == null) return; // the runtime was closed meanwhile
       res.invoke([value]);
     }, onError: (e) {
+      if (rej._ctx == null) return; // the runtime was closed meanwhile
       rej.invoke([e]);
     }).whenComplete(() {
       refRes.free();

@@ -269,7 +269,12 @@ void jsFreeRuntime(
       ref.destroy();
     }
   }
-  _jsFreeRuntime(rt);
+  try {
+    _jsFreeRuntime(rt);
+  } finally {
+    // The entry holds the runtime's channel closure (and so the runtime).
+    runtimeOpaques.remove(rt);
+  }
   if (referenceleak.length > 0) {
     throw ('reference leak:\n    ADDR\tREF\tTYPE\tPROP\n' +
         referenceleak.join('\n'));

@@ -8,6 +8,7 @@ import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter_js_runtime/flutter_js.dart';
+import 'package:flutter_js_runtime/src/runtime_lifecycle.dart';
 
 import 'ffi.dart';
 
@@ -59,6 +60,11 @@ class QuickJsRuntime2 extends JavascriptRuntime {
   _ensureEngine() {
     if (_rt != null) return;
     final rt = jsNewRuntime((ctx, type, ptr) {
+      // Dart code called from running JavaScript (a function, the module
+      // handler, the promise rejection handler) may dispose this runtime.
+      // FREE_OBJECT is not counted: it also fires while the engine is freed.
+      final runsUserCode = type != JSChannelType.FREE_OBJECT;
+      if (runsUserCode) _channelDepth++;
       try {
         switch (type) {
           case JSChannelType.METHON:
@@ -123,6 +129,8 @@ class QuickJsRuntime2 extends JavascriptRuntime {
           return nullptr;
         }
         return err;
+      } finally {
+        if (runsUserCode) _channelDepth--;
       }
     }, timeout ?? 0, port);
     final stackSize = this.stackSize;
@@ -241,6 +249,21 @@ class QuickJsRuntime2 extends JavascriptRuntime {
 
   @override
   void dispose() {
+    markRuntimeDisposed(this);
+    // When a Dart function called from JavaScript disposes the runtime,
+    // JavaScript is still running: free the engine once the stack has
+    // unwound.
+    if (_channelDepth > 0) {
+      scheduleMicrotask(_release);
+    } else {
+      _release();
+    }
+  }
+
+  /// How many calls from running JavaScript into Dart are in progress.
+  int _channelDepth = 0;
+
+  void _release() {
     try {
       port.close(); // stop dispatch loop
       close(); // close engine
@@ -267,15 +290,17 @@ class QuickJsRuntime2 extends JavascriptRuntime {
 
   @override
   void initChannelFunctions() {
-    JavascriptRuntime.channelFunctionsRegistered[getEngineInstanceId()] = {};
+    JavascriptRuntime.channelFunctionsRegistered[getEngineInstanceId()] =
+        runtimeChannels(this);
     final setToGlobalObject =
         evaluate("(key, val) => { this[key] = val; }").rawResult;
     localContext['setToGlobalObject'] = setToGlobalObject;
     (setToGlobalObject as JSInvokable).invoke([
       'sendMessage',
       (String channelName, String message) {
-        final channelFunctions = JavascriptRuntime
-            .channelFunctionsRegistered[getEngineInstanceId()]!;
+        // A call that arrives after dispose() is dropped.
+        if (isRuntimeDisposed(this)) return null;
+        final channelFunctions = runtimeChannels(this);
 
         if (channelFunctions.containsKey(channelName)) {
           return channelFunctions[channelName]!.call(jsonDecode(message));
@@ -296,8 +321,7 @@ class QuickJsRuntime2 extends JavascriptRuntime {
 
   @override
   bool setupBridge(String channelName, void Function(dynamic args) fn) {
-    final channelFunctionCallbacks =
-        JavascriptRuntime.channelFunctionsRegistered[getEngineInstanceId()]!;
+    final channelFunctionCallbacks = runtimeChannels(this);
 
     if (channelFunctionCallbacks.keys.contains(channelName)) return false;
 

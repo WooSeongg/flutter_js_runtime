@@ -5,6 +5,7 @@ import 'dart:ffi';
 import 'package:flutter/foundation.dart';
 
 import 'js_eval_result.dart';
+import 'src/runtime_lifecycle.dart';
 
 class FlutterJsPlatformEmpty extends JavascriptRuntime {
   @override
@@ -156,12 +157,19 @@ abstract class JavascriptRuntime {
         int duration = delay.isFinite ? delay.toInt() : 0;
         String idx = args['timeoutIndex'];
 
-        Timer(Duration(milliseconds: duration), () {
-          evaluate("""
+        // Owned by the runtime, so dispose() cancels it.
+        ownRuntimeTimer(
+          this,
+          Timer(Duration(milliseconds: duration), () {
+            releaseRuntimeTimer(this, idx);
+            if (isRuntimeDisposed(this)) return;
+            evaluate("""
             __NATIVE_FLUTTER_JS__setTimeoutCallbacks[$idx].call();
             delete __NATIVE_FLUTTER_JS__setTimeoutCallbacks[$idx];
           """);
-        });
+          }),
+          key: idx,
+        );
       } on Exception catch (e) {
         print('Exception no setTimeout: $e');
       } on Error catch (e) {

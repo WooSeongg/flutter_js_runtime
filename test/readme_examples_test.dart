@@ -62,13 +62,13 @@ void main() {
     runtime.dispose();
   });
 
-  // Known issue inherited from flutter_js 0.8.7: getJavascriptRuntime() with
-  // the default xhr: true starts enableFetch() without awaiting it. Disposing
-  // the runtime before the polyfill finishes loading evaluates JavaScript on a
-  // freed context and crashes the process. Remove `skip` once fixed.
-  test('dispose right after getJavascriptRuntime() with xhr: true', () {
+  // getJavascriptRuntime() with the default xhr: true starts enableFetch()
+  // without awaiting it; the polyfill must not be evaluated on a runtime
+  // that was disposed in the meantime.
+  test('dispose right after getJavascriptRuntime() with xhr: true', () async {
     final runtime = getJavascriptRuntime();
     expect(runtime.evaluate('1 + 1').stringResult, equals('2'));
     runtime.dispose();
-  }, skip: 'known crash: unawaited enableFetch() races with dispose()');
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+  });
 }

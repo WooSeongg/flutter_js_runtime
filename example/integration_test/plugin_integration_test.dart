@@ -79,6 +79,44 @@ void main() {
     expect(stack.stringResult, contains('my_script.js'));
   });
 
+  testWidgets('dispose() twice and right after creation is safe',
+      (tester) async {
+    await tester.runAsync(() async {
+      final runtime = getJavascriptRuntime(); // loads fetch in the background
+      runtime.dispose();
+      runtime.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+  });
+
+  testWidgets('dispose() inside an onMessage handler lets the script finish',
+      (tester) async {
+    await tester.runAsync(() async {
+      final runtime = getJavascriptRuntime(xhr: false);
+      runtime.onMessage('bye', (args) {
+        runtime.dispose();
+        return 1;
+      });
+      final result = runtime.evaluate("sendMessage('bye', '1'); 'finished'");
+      expect(result.stringResult, 'finished');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+  });
+
+  testWidgets('a timeout pending at dispose() never calls back',
+      (tester) async {
+    await tester.runAsync(() async {
+      final runtime = getJavascriptRuntime(xhr: false);
+      var calls = 0;
+      runtime.onMessage('tick', (args) => calls++);
+      runtime.evaluate(
+          "setTimeout(function () { sendMessage('tick', '1'); }, 50);");
+      runtime.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(calls, 0);
+    });
+  });
+
   testWidgets('QuickJS: a listener on the runtime port still gets ticks',
       (tester) async {
     final runtime = getJavascriptRuntime();
