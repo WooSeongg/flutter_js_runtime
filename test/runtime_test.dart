@@ -40,6 +40,37 @@ void main() {
     });
   });
 
+  group('sendMessage from JavaScript', () {
+    // Wraps the call so the outcome is a string on every engine.
+    String call(String js) => runtime.evaluate('''(function () {
+      try { return 'returned:' + String($js); }
+      catch (e) { return 'threw'; } })()''').stringResult;
+
+    test('with fewer than two arguments throws instead of crashing', () {
+      runtime.onMessage('channel', (args) => 'reply');
+      expect(call("sendMessage('channel', '1')"), 'returned:reply');
+      expect(call("sendMessage('channel')"), 'threw');
+      expect(call('sendMessage()'), 'threw');
+      // The runtime is still usable.
+      expect(call("sendMessage('channel', '2')"), 'returned:reply');
+    });
+
+    test('an async handler that fails rejects the promise', () async {
+      runtime.onMessage(
+          'fail', (args) => Future<String>.error('bad "quote"\nsecond line'));
+      runtime.evaluate('''globalThis.outcome = 'pending';
+        Promise.resolve(sendMessage('fail', '1')).then(
+          function () { outcome = 'resolved'; },
+          function () { outcome = 'rejected'; });''');
+      for (var i = 0; i < 50; i++) {
+        await Future.delayed(const Duration(milliseconds: 20));
+        runtime.executePendingJob();
+        if (runtime.evaluate('outcome').stringResult != 'pending') break;
+      }
+      expect(runtime.evaluate('outcome').stringResult, 'rejected');
+    });
+  });
+
   test('handlePromise does not touch a global named idx', () async {
     runtime.evaluate('var idx = "mine";');
     final promise = runtime.evaluate('Promise.resolve(7)');
@@ -50,4 +81,35 @@ void main() {
     expect(runtime.evaluate('idx').stringResult, 'mine');
   });
 
+  group('convertValue', () {
+    T? convert<T>(String js) => runtime.convertValue<T>(runtime.evaluate(js));
+
+    test('whole numbers are int, others double', () {
+      expect(convert<num>('5'), 5);
+      expect(convert<num>('5'), isA<int>());
+      expect(convert<num>('2 ** 40'), 1099511627776);
+      expect(convert<num>('1.5'), 1.5);
+      expect(convert<num>('1e-7'), 1e-7);
+    });
+
+    test('NaN, Infinity and numbers beyond int64 are double', () {
+      expect(convert<num>('0 / 0'), isNaN);
+      expect(convert<num>('1 / 0'), double.infinity);
+      expect(convert<num>('-1 / 0'), double.negativeInfinity);
+      expect(convert<num>('1e21'), 1e21);
+      expect(convert<num>('1e21'), isA<double>());
+      expect(convert<num>('-(2 ** 63)'), isA<double>());
+    });
+
+    test('whole numbers up to the int64 limit are int', () {
+      expect(convert<num>('9.21e18'), 9210000000000000000);
+      expect(convert<num>('9.21e18'), isA<int>());
+      expect(convert<num>('-9.21e18'), isA<int>());
+    });
+
+    test('a number that does not fit the requested type gives null', () {
+      expect(convert<int>('1.5'), isNull);
+      expect(convert<int>('0 / 0'), isNull);
+    });
+  });
 }
