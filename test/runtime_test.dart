@@ -2,6 +2,8 @@
 // sendMessage channel, promises and value conversion.
 // Runs on the host engine (JavaScriptCore on macOS). Issue numbers refer to
 // https://github.com/abner/flutter_js/issues.
+import 'dart:io';
+
 import 'package:flutter_js_runtime/flutter_js.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -79,6 +81,29 @@ void main() {
         timeout: const Duration(seconds: 3));
     expect(result.stringResult, '7');
     expect(runtime.evaluate('idx').stringResult, 'mine');
+  });
+
+  test('evaluate does not leak memory on every call', () async {
+    const script = 'Math.max(1, 2) + JSON.stringify({a: 1}).length';
+    // Evaluates in batches, returning to the event loop in between as an
+    // app does.
+    Future<void> evaluateBatches(int batches) async {
+      for (var batch = 0; batch < batches; batch++) {
+        for (var i = 0; i < 5000; i++) {
+          runtime.evaluate(script);
+        }
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    // Let the engine's own caches and heap settle first.
+    await evaluateBatches(4);
+    final before = ProcessInfo.currentRss;
+    await evaluateBatches(120); // 600,000 evaluates
+    final grownMb = (ProcessInfo.currentRss - before) / (1024 * 1024);
+    // The old leaks grew about 190 MB (JavaScriptCore) and 24 MB (QuickJS)
+    // here; without them growth stays within a few MB.
+    expect(grownMb, lessThan(12));
   });
 
   group('convertValue', () {

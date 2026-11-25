@@ -79,6 +79,20 @@ void main() {
     expect(stack.stringResult, contains('my_script.js'));
   });
 
+  testWidgets('QuickJS: a listener on the runtime port still gets ticks',
+      (tester) async {
+    final runtime = getJavascriptRuntime();
+    if (runtime is! QuickJsRuntime2) return;
+    await tester.runAsync(() async {
+      final ticks = <dynamic>[];
+      final subscription = runtime.port.listen(ticks.add);
+      runtime.evaluate('1 + 1');
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(ticks, isNotEmpty);
+      await subscription.cancel();
+    });
+  }, skip: !Platform.isAndroid);
+
   testWidgets('native plugin class answers on its method channel',
       (tester) async {
     const channel = MethodChannel('io.github.wooseongg.flutter_js_runtime');

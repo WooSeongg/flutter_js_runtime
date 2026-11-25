@@ -38,7 +38,7 @@ class QuickJsRuntime2 extends JavascriptRuntime {
   final int? memoryLimit;
 
   /// Message Port for event loop. Close it to stop dispatching event loop.
-  ReceivePort port = ReceivePort();
+  ReceivePort port = _TickPort();
 
   /// Handler function to manage js module.
   final _JsModuleHandler? moduleHandler;
@@ -304,5 +304,39 @@ class QuickJsRuntime2 extends JavascriptRuntime {
     channelFunctionCallbacks[channelName] = fn;
 
     return true;
+  }
+}
+
+/// The [QuickJsRuntime2.port]. Every evaluate and function call posts a tick
+/// to it. A plain [ReceivePort] buffers messages until somebody listens, and
+/// nothing in this package does, so the ticks piled up forever. This port
+/// delivers ticks while it has a listener and drops them otherwise.
+class _TickPort extends Stream<dynamic> implements ReceivePort {
+  final RawReceivePort _port = RawReceivePort();
+  final StreamController<dynamic> _ticks = StreamController<dynamic>();
+
+  _TickPort() {
+    _port.handler = (dynamic message) {
+      if (_ticks.hasListener) _ticks.add(message);
+    };
+  }
+
+  @override
+  SendPort get sendPort => _port.sendPort;
+
+  @override
+  StreamSubscription<dynamic> listen(
+    void Function(dynamic message)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) =>
+      _ticks.stream.listen(onData,
+          onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+
+  @override
+  void close() {
+    _port.close();
+    _ticks.close();
   }
 }

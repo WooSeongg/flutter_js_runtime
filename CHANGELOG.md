@@ -8,6 +8,7 @@
 - `setTimeout`: a delay that is not an integer (`10.5`, `"10"`) no longer drops the callback; the delay is converted with `Number()` and truncated (#62 in flutter_js).
 - `handlePromise` no longer overwrites a global variable named `idx`.
 - iOS, macOS (JavaScriptCore): calling `sendMessage` from JavaScript with fewer than two arguments throws an error instead of crashing the app. `evaluate` no longer leaks memory on every call (a copy of the script plus small native buffers). A failing async `onMessage` handler now rejects the JavaScript promise even when the error text contains quotes or line breaks. `convertValue` returns a `double` for `NaN`, `Infinity` and numbers in exponent notation instead of throwing a `FormatException`.
+- Android, Windows, Linux (QuickJS): `evaluate` and function calls no longer leak memory on every call (messages piled up on the runtime's `port` when nothing listened to it; they are now dropped unless the port has a listener).
 - Android, Windows, Linux (QuickJS): `evaluate` now sets `isPromise` for promise results (#155 in flutter_js), uses `sourceUrl` as the file name in error stacks (#146 in flutter_js), and `convertValue` returns the evaluated value instead of always `true`, with the same shapes as on JavaScriptCore (whole numbers as `int`, objects as `Map<String, dynamic>`, `null` for a number that does not fit `T`) (#101 in flutter_js).
 
 # 1.0.0
