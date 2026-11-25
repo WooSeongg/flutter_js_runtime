@@ -78,8 +78,8 @@ XMLHttpRequest.LOADING = 3;
 XMLHttpRequest.DONE = 4;
 XMLHttpRequest.prototype.constructor = XMLHttpRequest;
 XMLHttpRequest.prototype.open = function(httpMethod, url) {
-  this._httpMethod = httpMethod;
-  this._url = url;
+  this._httpMethod = httpMethod == null ? httpMethod : String(httpMethod);
+  this._url = url == null ? url : String(url);
   // Headers of a previous response must not show on a reused request.
   this._responseHeaders = [];
   this.readyState = XMLHttpRequest.OPENED;
@@ -99,7 +99,17 @@ XMLHttpRequest.prototype.send = function(data) {
     this.onloadstart();
   }
   var that = this;
-  this._send_native(this._httpMethod, this._url, this._requestHeaders, data || null, function(responseInfo, responseText, error) {
+  if (typeof ArrayBuffer !== "undefined" && data && (data instanceof ArrayBuffer || ArrayBuffer.isView(data))) {
+    // Bodies are passed to Dart as text; sending the bytes as their string
+    // form would silently upload the wrong data.
+    setTimeout(function() {
+      that._send_native_callback({ statusCode: 0, statusText: "" }, null, "XHR binary request bodies are not supported");
+    }, 0);
+    return;
+  }
+  // As in browsers, other bodies that are not strings are sent as String(body).
+  var body = (data === undefined || data === null || data === "") ? null : String(data);
+  this._send_native(this._httpMethod, this._url, this._requestHeaders, body, function(responseInfo, responseText, error) {
     that._send_native_callback(responseInfo, responseText, error);
   }, this);
 };
@@ -205,7 +215,7 @@ XMLHttpRequest.prototype._send_native_callback = function(responseInfo, response
   }
 };
 XMLHttpRequest.prototype.setRequestHeader = function(header, value) {
-  this._requestHeaders.push([header, value]);
+  this._requestHeaders.push([String(header), String(value)]);
 };
 // As in browsers: lower-cased names sorted by their upper-cased form, one
 // "name: value" line per name (repeated names combined with ", "), each line
@@ -315,12 +325,24 @@ extension JavascriptRuntimeXhrExtension on JavascriptRuntime {
       // for each pending call, calls the remote http service
       pendingCalls.forEach((element) async {
         XhrPendingCall pendingCall = element as XhrPendingCall;
-        HttpMethod eMethod = HttpMethod.values.firstWhere((e) =>
-            e.toString().toLowerCase() ==
-            ("HttpMethod.${pendingCall.method}".toLowerCase()));
         late http.Response response;
         try {
-          switch (eMethod) {
+          final methodName = '${pendingCall.method}'.toLowerCase();
+          final knownMethods =
+              HttpMethod.values.where((e) => e.name == methodName);
+          switch (knownMethods.isEmpty ? null : knownMethods.first) {
+            case null:
+              // Any other method (OPTIONS, ...) is sent as it is.
+              final request = http.Request(
+                methodName == 'options' ? 'OPTIONS' : pendingCall.method!,
+                Uri.parse(pendingCall.url!),
+              )..headers.addAll(pendingCall.headers);
+              final body = pendingCall.body;
+              if (body != null) request.body = body;
+              response = await http.Response.fromStream(
+                await httpClient!.send(request),
+              );
+              break;
             case HttpMethod.head:
               response = await httpClient!.head(
                 Uri.parse(pendingCall.url!),
@@ -336,27 +358,24 @@ extension JavascriptRuntimeXhrExtension on JavascriptRuntime {
             case HttpMethod.post:
               response = await httpClient!.post(
                 Uri.parse(pendingCall.url!),
-                body: (pendingCall.body is String)
-                    ? pendingCall.body
-                    : jsonEncode(pendingCall.body),
+                // null sends no body (jsonEncode(null) would send "null").
+                body: pendingCall.body,
                 headers: pendingCall.headers,
               );
               break;
             case HttpMethod.put:
               response = await httpClient!.put(
                 Uri.parse(pendingCall.url!),
-                body: (pendingCall.body is String)
-                    ? pendingCall.body
-                    : jsonEncode(pendingCall.body),
+                // null sends no body (jsonEncode(null) would send "null").
+                body: pendingCall.body,
                 headers: pendingCall.headers,
               );
               break;
             case HttpMethod.patch:
               response = await httpClient!.patch(
                 Uri.parse(pendingCall.url!),
-                body: (pendingCall.body is String)
-                    ? pendingCall.body
-                    : jsonEncode(pendingCall.body),
+                // null sends no body (jsonEncode(null) would send "null").
+                body: pendingCall.body,
                 headers: pendingCall.headers,
               );
               break;
@@ -404,10 +423,13 @@ extension JavascriptRuntimeXhrExtension on JavascriptRuntime {
     var idRequest = -1;
     function XMLHttpRequestExtension_send_native() {
       idRequest += 1;
+      var id = idRequest;
       var cb = arguments[4];
       var context = arguments[5];
-      xhrRequests[idRequest] = {
+      xhrRequests[id] = {
         callback: function(responseInfo, responseText, error) {
+          // A request is answered once; do not keep it (and its response).
+          delete xhrRequests[id];
           cb(responseInfo, responseText, error);
         }
       };
@@ -431,7 +453,7 @@ extension JavascriptRuntimeXhrExtension on JavascriptRuntime {
         String? method = arguments[0];
         String? url = arguments[1];
         dynamic headersList = arguments[2];
-        String? body = arguments[3];
+        String? body = arguments[3]?.toString();
         int? idRequest = arguments[4];
 
         Map<String, String> headers = {};
@@ -442,8 +464,8 @@ extension JavascriptRuntimeXhrExtension on JavascriptRuntime {
           // if (headerName != null) {
           //   headers[headerName] = headerValue ?? '';
           // }
-          String headerKey = header[0];
-          headers[headerKey] = header[1];
+          String headerKey = '${header[0]}';
+          headers[headerKey] = '${header[1]}';
         });
         (dartContext[XHR_PENDING_CALLS_KEY] as List<dynamic>).add(
           XhrPendingCall(
@@ -454,10 +476,25 @@ extension JavascriptRuntimeXhrExtension on JavascriptRuntime {
             body: body,
           ),
         );
-      } on Error catch (e) {
+      } catch (e) {
         if (_XHR_DEBUG) print('ERROR calling sendNative on Dart: >>>> $e');
-      } on Exception catch (e) {
-        if (_XHR_DEBUG) print('Exception calling sendNative on Dart: >>>> $e');
+        // Report the failure, or the request would never settle. Not from
+        // inside this handler: JavaScript is still running send().
+        final id = arguments is List && arguments.length > 4
+            ? arguments[4]
+            : null;
+        if (id is int) {
+          Timer.run(
+            () => _sendXhrResult(
+              id,
+              XmlHttpRequestResponse(
+                responseInfo:
+                    XhtmlHttpResponseInfo(statusCode: 0, statusText: ''),
+                error: e.toString(),
+              ),
+            ),
+          );
+        }
       }
     });
     return this;

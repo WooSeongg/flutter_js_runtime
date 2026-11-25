@@ -25,7 +25,9 @@ void useRealHttpClientForXhr() {
 class _RealHttpOverrides extends HttpOverrides {}
 
 /// Local HTTP server on 127.0.0.1 that answers each path from [routes].
-/// Unknown paths get 404.
+/// `/echo` answers with a JSON description of the request it received:
+/// `{"method", "body", "headers": {lower-cased name: value}}`.
+/// Other unknown paths get 404.
 class TestHttpServer {
   TestHttpServer._(this._server);
 
@@ -35,7 +37,20 @@ class TestHttpServer {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
       final handler = routes[request.uri.path];
-      if (handler == null) {
+      if (handler == null && request.uri.path == '/echo') {
+        final headers = <String, String>{};
+        request.headers.forEach((name, values) {
+          headers[name] = values.join(', ');
+        });
+        final body = await utf8.decoder.bind(request).join();
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write(jsonEncode({
+            'method': request.method,
+            'body': body,
+            'headers': headers,
+          }));
+      } else if (handler == null) {
         request.response.statusCode = HttpStatus.notFound;
       } else {
         handler(request.response);

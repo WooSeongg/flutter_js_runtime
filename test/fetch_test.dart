@@ -89,6 +89,75 @@ void main() {
         jsonEncode({'rejected': true}));
   });
 
+  group('request', () {
+    // Decoded `ok` value of pick(echo) for fetch('/echo', options), where
+    // echo is what the server received.
+    Future<dynamic> sent(String options, String pick) async =>
+        jsonDecode(await jsOutcome(
+            'fetch(${jsonEncode(server.url('/echo'))}, $options)'
+            '.then(r => r.json()).then($pick)'))['ok'];
+
+    test('POST without a body sends an empty body, not "null"', () async {
+      expect(
+          await sent("{method: 'POST'}", '''e => ({
+            body: e.body,
+            length: e.headers['content-length'],
+            hasType: 'content-type' in e.headers})'''),
+          {'body': '', 'length': '0', 'hasType': false});
+    });
+
+    test('PUT and PATCH without a body send an empty body', () async {
+      expect(await sent("{method: 'PUT'}", 'e => e.method + ":" + e.body'),
+          'PUT:');
+      expect(await sent("{method: 'PATCH'}", 'e => e.method + ":" + e.body'),
+          'PATCH:');
+    });
+
+    test('a string body is sent unchanged', () async {
+      expect(
+          await sent("{method: 'POST', body: '{\"a\": 1}'}", 'e => e.body'),
+          '{"a": 1}');
+    });
+
+    test('a body that is not a string is sent as String(body)', () async {
+      expect(await sent("{method: 'POST', body: 5}", 'e => e.body'), '5');
+      expect(await sent("{method: 'POST', body: {a: 1}}", 'e => e.body'),
+          '[object Object]');
+    });
+
+    test('a binary body fails instead of being sent as text', () async {
+      expect(
+          await jsOutcome('fetch(${jsonEncode(server.url('/echo'))}, '
+              '{method: "POST", body: new Uint8Array([104, 105])})'),
+          jsonEncode({'rejected': true}));
+    });
+
+    test('header values that are not strings are sent as strings', () async {
+      expect(
+          await sent("{headers: {'X-Id': 1, 'X-Flag': true}}",
+              "e => ({id: e.headers['x-id'], flag: e.headers['x-flag']})"),
+          {'id': '1', 'flag': 'true'});
+    });
+
+    test('methods outside GET/POST/PUT/PATCH/DELETE/HEAD are sent', () async {
+      expect(await sent("{method: 'OPTIONS'}", 'e => e.method'), 'OPTIONS');
+      expect(await sent("{method: 'options'}", 'e => e.method'), 'OPTIONS');
+      expect(
+          await sent("{method: 'PROPFIND', body: 'x'}",
+              'e => e.method + ":" + e.body'),
+          'PROPFIND:x');
+    });
+
+    test('finished requests are not kept in memory', () async {
+      expect(
+          jsonDecode(await jsOutcome(
+              'fetch(${jsonEncode(server.url('/plain'))})'
+              '.then(() => fetch(${jsonEncode(server.url('/plain'))}))'
+              '.then(() => Object.keys(xhrRequests).length)'))['ok'],
+          0);
+    });
+  });
+
   group('response headers', () {
     // Decoded `ok` value of fetch(path).then(then).
     Future<dynamic> headersOf(String path, String then) async =>

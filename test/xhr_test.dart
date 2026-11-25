@@ -111,6 +111,36 @@ void main() {
     });
   });
 
+  group('requests', () {
+    test('open() accepts a method and URL that are not strings', () async {
+      final url = jsonEncode(server.url('/headers'));
+      expect(
+          jsonDecode(await jsOutcome('''new Promise(resolve => {
+            const xhr = new XMLHttpRequest();
+            xhr.onloadend = () => resolve(xhr.status);
+            xhr.open({toString: () => 'GET'}, {toString: () => $url});
+            xhr.send();
+          })'''))['ok'],
+          200);
+    });
+
+    test('a request the Dart side cannot read fails instead of hanging',
+        () async {
+      // The header list is malformed on purpose (not [name, value] pairs).
+      expect(
+          jsonDecode(await jsOutcome('''new Promise(resolve => {
+            XMLHttpRequestExtension_send_native(
+                'GET', 'http://unused.invalid/', [5], null,
+                (info, text, error) => resolve({
+                  status: info.statusCode,
+                  failed: typeof error === 'string' && error.length > 0,
+                  kept: Object.keys(xhrRequests).length}),
+                null);
+          })'''))['ok'],
+          {'status': 0, 'failed': true, 'kept': 0});
+    });
+  });
+
   group('header lists the HTTP client does not produce', () {
     // Result of read(xhr) for a 200 response carrying [headers].
     dynamic respondWith(Object? headers, String read) =>
