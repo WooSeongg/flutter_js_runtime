@@ -43,7 +43,8 @@ function fetch(url, options) {
 			resolve(response());
 		};
 
-		request.onerror = reject;
+		// Reject with an Error (not undefined) so the failure reaches Dart too.
+		request.onerror = () => reject(new TypeError('Network request failed: ' + request.responseText));
 
 		request.withCredentials = options.credentials=='include';
 

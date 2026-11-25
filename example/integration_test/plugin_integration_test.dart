@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_js_runtime/extensions/fetch.dart';
 import 'package:flutter_js_runtime/flutter_js_runtime.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -27,6 +29,21 @@ void main() {
     runtime.executePendingJob();
     final resolved = await runtime.handlePromise(pending);
     expect(resolved.stringResult, '42');
+  });
+
+  testWidgets('fetch network failure rejects the Dart future', (tester) async {
+    await tester.runAsync(() async {
+      final closed = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final port = closed.port;
+      await closed.close();
+      final runtime = getJavascriptRuntime(xhr: false);
+      await runtime.enableFetch();
+      final pending = runtime.evaluate("fetch('http://127.0.0.1:$port/')");
+      await expectLater(
+        runtime.handlePromise(pending, timeout: const Duration(seconds: 5)),
+        throwsA(isNot(isA<TimeoutException>())),
+      );
+    });
   });
 
   testWidgets('native plugin class answers on its method channel',

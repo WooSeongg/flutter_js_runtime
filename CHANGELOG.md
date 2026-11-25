@@ -1,3 +1,9 @@
+# Unreleased
+
+- `fetch` / `XMLHttpRequest`: the response body is now passed to JavaScript as data. Before, it was pasted into evaluated source code, so bodies containing `` ` ``, `\` or `${...}` broke the request (it never settled) or ran as JavaScript, and `json()` returned a string for JSON with escaped characters (#135, #80 in flutter_js). The body is also no longer re-serialized when it is JSON.
+- `fetch` / `XMLHttpRequest`: report the real HTTP status and status text instead of always `200 OK` (#175 in flutter_js).
+- `fetch` / `XMLHttpRequest`: network failures now fire `onerror` (status `0`) and reject the `fetch` promise with a `TypeError` instead of never settling, so `handlePromise` also fails instead of waiting forever. Response bodies that are not valid UTF-8 no longer hang the request (invalid bytes become U+FFFD) (#137 in flutter_js).
+
 # 1.0.0
 
 - Added Swift Package Manager support on iOS and macOS. CocoaPods keeps working.

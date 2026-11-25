@@ -255,6 +255,18 @@ extension JavascriptRuntimeXhrExtension on JavascriptRuntime {
     dartContext[XHR_PENDING_CALLS_KEY] = [];
   }
 
+  /// Sends the result of a pending XHR call back to the JavaScript callback.
+  /// Values are passed as JSON literals so the response body is never
+  /// interpreted as JavaScript source.
+  void _sendXhrResult(int? idRequest, XmlHttpRequestResponse result) {
+    final responseInfo = jsonEncode(result.responseInfo);
+    final responseText = jsonEncode(result.responseText);
+    final error = jsonEncode(result.error);
+    this.evaluate(
+      "globalThis.xhrRequests[$idRequest].callback($responseInfo, $responseText, $error);",
+    );
+  }
+
   JavascriptRuntime enableXhr() {
     httpClient = httpClient ?? http.Client();
     dartContext[XHR_PENDING_CALLS_KEY] = [];
@@ -275,71 +287,79 @@ extension JavascriptRuntimeXhrExtension on JavascriptRuntime {
             e.toString().toLowerCase() ==
             ("HttpMethod.${pendingCall.method}".toLowerCase()));
         late http.Response response;
-        switch (eMethod) {
-          case HttpMethod.head:
-            response = await httpClient!.head(
-              Uri.parse(pendingCall.url!),
-              headers: pendingCall.headers,
-            );
-            break;
-          case HttpMethod.get:
-            response = await httpClient!.get(
-              Uri.parse(pendingCall.url!),
-              headers: pendingCall.headers,
-            );
-            break;
-          case HttpMethod.post:
-            response = await httpClient!.post(
-              Uri.parse(pendingCall.url!),
-              body: (pendingCall.body is String)
-                  ? pendingCall.body
-                  : jsonEncode(pendingCall.body),
-              headers: pendingCall.headers,
-            );
-            break;
-          case HttpMethod.put:
-            response = await httpClient!.put(
-              Uri.parse(pendingCall.url!),
-              body: (pendingCall.body is String)
-                  ? pendingCall.body
-                  : jsonEncode(pendingCall.body),
-              headers: pendingCall.headers,
-            );
-            break;
-          case HttpMethod.patch:
-            response = await httpClient!.patch(
-              Uri.parse(pendingCall.url!),
-              body: (pendingCall.body is String)
-                  ? pendingCall.body
-                  : jsonEncode(pendingCall.body),
-              headers: pendingCall.headers,
-            );
-            break;
-          case HttpMethod.delete:
-            response = await httpClient!.delete(
-              Uri.parse(pendingCall.url!),
-              headers: pendingCall.headers,
-            );
-            break;
-        }
-        // assuming request was successfully executed
-        String responseText = utf8.decode(response.bodyBytes);
         try {
-          responseText = jsonEncode(json.decode(responseText));
-        } on Exception {}
-        final xhrResult = XmlHttpRequestResponse(
-          responseText: responseText,
-          responseInfo:
-              XhtmlHttpResponseInfo(statusCode: 200, statusText: "OK"),
-        );
-
-        final responseInfo = jsonEncode(xhrResult.responseInfo);
-        //final responseText = xhrResult.responseText; //.replaceAll("\\n", "\\\n");
-        final error = xhrResult.error;
-        // send back to the javascript environment the
-        // response for the http pending callback
-        this.evaluate(
-          "globalThis.xhrRequests[${pendingCall.idRequest}].callback($responseInfo, `$responseText`, $error);",
+          switch (eMethod) {
+            case HttpMethod.head:
+              response = await httpClient!.head(
+                Uri.parse(pendingCall.url!),
+                headers: pendingCall.headers,
+              );
+              break;
+            case HttpMethod.get:
+              response = await httpClient!.get(
+                Uri.parse(pendingCall.url!),
+                headers: pendingCall.headers,
+              );
+              break;
+            case HttpMethod.post:
+              response = await httpClient!.post(
+                Uri.parse(pendingCall.url!),
+                body: (pendingCall.body is String)
+                    ? pendingCall.body
+                    : jsonEncode(pendingCall.body),
+                headers: pendingCall.headers,
+              );
+              break;
+            case HttpMethod.put:
+              response = await httpClient!.put(
+                Uri.parse(pendingCall.url!),
+                body: (pendingCall.body is String)
+                    ? pendingCall.body
+                    : jsonEncode(pendingCall.body),
+                headers: pendingCall.headers,
+              );
+              break;
+            case HttpMethod.patch:
+              response = await httpClient!.patch(
+                Uri.parse(pendingCall.url!),
+                body: (pendingCall.body is String)
+                    ? pendingCall.body
+                    : jsonEncode(pendingCall.body),
+                headers: pendingCall.headers,
+              );
+              break;
+            case HttpMethod.delete:
+              response = await httpClient!.delete(
+                Uri.parse(pendingCall.url!),
+                headers: pendingCall.headers,
+              );
+              break;
+          }
+        } catch (e) {
+          // Network failure (connection refused, DNS, TLS, ...): report it
+          // so the JavaScript side calls onerror instead of waiting forever.
+          _sendXhrResult(
+            pendingCall.idRequest,
+            XmlHttpRequestResponse(
+              responseText: null,
+              responseInfo: XhtmlHttpResponseInfo(statusCode: 0, statusText: ''),
+              error: e.toString(),
+            ),
+          );
+          return;
+        }
+        // Malformed UTF-8 is replaced with U+FFFD instead of throwing.
+        final responseText =
+            utf8.decode(response.bodyBytes, allowMalformed: true);
+        _sendXhrResult(
+          pendingCall.idRequest,
+          XmlHttpRequestResponse(
+            responseText: responseText,
+            responseInfo: XhtmlHttpResponseInfo(
+              statusCode: response.statusCode,
+              statusText: response.reasonPhrase ?? '',
+            ),
+          ),
         );
       });
     });
