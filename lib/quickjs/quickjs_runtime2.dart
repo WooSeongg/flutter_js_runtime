@@ -189,7 +189,7 @@ class QuickJsRuntime2 extends JavascriptRuntime {
     final jsval = jsEval(
       ctx,
       command,
-      name ?? '<eval>',
+      name ?? sourceUrl ?? '<eval>',
       evalFlags ?? JSEvalFlag.GLOBAL,
     );
 
@@ -200,7 +200,8 @@ class QuickJsRuntime2 extends JavascriptRuntime {
     }
     final result = _jsToDart(ctx, jsval);
     jsFreeValue(ctx, jsval);
-    return JsEvalResult(result?.toString() ?? "null", result);
+    return JsEvalResult(result?.toString() ?? "null", result,
+        isPromise: result is Future);
   }
 
   @override
@@ -210,7 +211,32 @@ class QuickJsRuntime2 extends JavascriptRuntime {
 
   @override
   T? convertValue<T>(JsEvalResult jsValue) {
-    return true as T;
+    // rawResult is already a Dart value. Shape it like
+    // JavascriptCoreRuntime.convertValue: whole numbers as int, objects and
+    // arrays JSON-decoded (Map<String, dynamic> / List<dynamic>), and null
+    // when a number does not fit T.
+    Object? value = jsValue.rawResult;
+    // (Outside the int64 range toInt() would clamp, so those stay double.)
+    if (value is double &&
+        value > -9223372036854775808.0 &&
+        value < 9223372036854775808.0 &&
+        value == value.truncateToDouble()) {
+      value = value.toInt();
+    } else if (value is Map || value is List) {
+      try {
+        value = jsonDecode(jsonEncode(value, toEncodable: (_) => null));
+      } on Error catch (_) {
+        // Not JSON-encodable (e.g. NaN inside); keep the raw value.
+      }
+    }
+    if (value is num) {
+      try {
+        return value as T;
+      } on TypeError {
+        return null;
+      }
+    }
+    return value as T?;
   }
 
   @override
