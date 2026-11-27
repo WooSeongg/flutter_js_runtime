@@ -106,6 +106,34 @@ void main() {
     expect(grownMb, lessThan(12));
   });
 
+  // Object results are checked for then/catch and errors read message/stack;
+  // each property read leaked its name (JavaScriptCore).
+  // Measured over 200,000 evaluates: an object grew 40 MB before the fix and
+  // under 1 MB after; an error 121 MB before and about 23 MB after (the rest
+  // is JavaScriptCore collecting Error objects late, not a steady leak).
+  for (final entry in {
+    'an object': ('({a: 1})', 12),
+    'an error': ('throw new Error("boom")', 60),
+  }.entries) {
+    final (script, limitMb) = entry.value;
+    test('evaluate returning ${entry.key} does not leak memory', () async {
+      Future<void> evaluateBatches(int batches) async {
+        for (var batch = 0; batch < batches; batch++) {
+          for (var i = 0; i < 5000; i++) {
+            runtime.evaluate(script);
+          }
+          await Future<void>.delayed(Duration.zero);
+        }
+      }
+
+      await evaluateBatches(4);
+      final before = ProcessInfo.currentRss;
+      await evaluateBatches(40); // 200,000 evaluates
+      final grownMb = (ProcessInfo.currentRss - before) / (1024 * 1024);
+      expect(grownMb, lessThan(limitMb));
+    });
+  }
+
   group('convertValue', () {
     T? convert<T>(String js) => runtime.convertValue<T>(runtime.evaluate(js));
 

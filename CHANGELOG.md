@@ -6,6 +6,10 @@ Bug fixes; no API changes. Issue numbers refer to flutter_js.
 
 - Promise callbacks run on their own, as on iOS and macOS (#112, #100). Before, `.then` callbacks, code after `await` (for example after a `setTimeout`) and `await` on the result of an async `onMessage` handler only ran while `handlePromise` was waiting or after calling `executePendingJob()`. They run right after the current Dart event, not inside `evaluate`. Calling `executePendingJob()` still works.
 
+**iOS, macOS (JavaScriptCore)**
+
+- Fixed memory leaks in `evaluate` calls that return an object or throw an error, and in `sendMessage` calls whose `onMessage` handler returns a value (#168).
+
 **Documentation and cleanup**
 
 - README: added a FAQ on calling functions with arguments (#103), loading several files or a bundled library (#115, #131, #142, #148) and resetting a runtime (#91), and a note on the Flutter 3.44–3.46 `android.builtInKotlin=true` build limitation.

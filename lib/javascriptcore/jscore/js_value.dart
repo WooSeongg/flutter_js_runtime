@@ -207,8 +207,16 @@ class JSValue {
   /// Creates a JavaScript value from a JSON formatted string.
   /// [string] The JSString containing the JSON string to be parsed.
   JSValue.makeFromJSONString(this.context, String string)
-      : this.pointer = JSValueRef.jSValueMakeFromJSONString(
-            context.pointer, JSString.fromString(string).pointer);
+      : this.pointer = _makeFromJSONString(context, string);
+
+  static Pointer _makeFromJSONString(JSContext context, String string) {
+    // JSValueMakeFromJSONString does not keep the string: release it.
+    final json = JSString.fromString(string);
+    final value =
+        JSValueRef.jSValueMakeFromJSONString(context.pointer, json.pointer);
+    json.release();
+    return value;
+  }
 
   /// Value type
   JSType get type {
@@ -274,7 +282,7 @@ class JSValue {
     JSValuePointer? exception,
   }) {
     int typeCode = JSValueRef.jSValueGetTypedArrayType(context.pointer, pointer,
-        (exception ?? JSValuePointer(nullptr)).pointer);
+        exception?.pointer ?? nullptr);
     return cEnumToJSTypedArrayType(typeCode);
   }
 
@@ -284,7 +292,7 @@ class JSValue {
     JSValuePointer? exception,
   }) {
     return JSValueRef.jSValueIsEqual(context.pointer, pointer, other.pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer) ==
+            exception?.pointer ?? nullptr) ==
         1;
   }
 
@@ -297,7 +305,7 @@ class JSValue {
             context.pointer,
             pointer,
             constructor.pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer) ==
+            exception?.pointer ?? nullptr) ==
         1;
   }
 
@@ -309,7 +317,7 @@ class JSValue {
     JSValuePointer? exception,
   }) {
     return JSString(JSValueRef.jSValueCreateJSONString(context.pointer, pointer,
-        indent, (exception ?? JSValuePointer(nullptr)).pointer));
+        indent, exception?.pointer ?? nullptr));
   }
 
   /// Converts a JavaScript value to boolean and returns the resulting boolean.
@@ -323,7 +331,7 @@ class JSValue {
     JSValuePointer? exception,
   }) {
     return JSValueRef.jSValueToNumber(context.pointer, pointer,
-        (exception ?? JSValuePointer(nullptr)).pointer);
+        exception?.pointer ?? nullptr);
   }
 
   /// Converts a JavaScript value to number and returns the resulting string.
@@ -340,7 +348,7 @@ class JSValue {
     JSValuePointer? exception,
   }) {
     return JSString(JSValueRef.jSValueToStringCopy(context.pointer, pointer,
-        (exception ?? JSValuePointer(nullptr)).pointer));
+        exception?.pointer ?? nullptr));
   }
 
   /// Converts a JavaScript value to object and returns the resulting object.
@@ -351,7 +359,7 @@ class JSValue {
     return JSObject(
         context,
         JSValueRef.jSValueToObject(context.pointer, pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer));
+            exception?.pointer ?? nullptr));
   }
 
   /// Protects a JavaScript value from garbage collection.
