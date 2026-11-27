@@ -1,3 +1,11 @@
+# 1.0.2
+
+Documentation and cleanup; no API or behavior changes.
+
+- README: added a FAQ on calling functions with arguments (#103 in flutter_js), loading several files or a bundled library (#115, #131, #142, #148 in flutter_js) and resetting a runtime (#91 in flutter_js), and a note on the Flutter 3.44–3.46 `android.builtInKotlin=true` build limitation.
+- Android: removed an unused duplicate plugin class.
+- iOS: removed a compiler warning.
+
 # 1.0.1
 
 Bug fixes only; no API changes. Issue numbers refer to flutter_js.

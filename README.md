@@ -23,7 +23,7 @@ keeps working after the [migration steps](#migrating-from-flutter_js) below.
 
 ```yaml
 dependencies:
-  flutter_js_runtime: ^1.0.1
+  flutter_js_runtime: ^1.0.2
 ```
 
 Version 1.x requires Flutter 3.44 / Dart 3.12 or newer. On older Flutter
@@ -95,13 +95,55 @@ with `handlePromise`). It may be called more than once, and from inside an
 Do not use a runtime after disposing it. On iOS and macOS that throws a
 `StateError`.
 
+## FAQ
+
+### How do I call a JavaScript function with arguments?
+
+Build the call in `evaluate`. Pass values through `jsonEncode` so strings
+are quoted and escaped:
+
+```dart
+import 'dart:convert';
+
+runtime.evaluate('function greet(name) { return "Hello, " + name; }');
+final result = runtime.evaluate('greet(${jsonEncode('Flutter')})');
+print(result.stringResult); // Hello, Flutter
+```
+
+`callFunction` is not implemented on QuickJS (Android, Windows, Linux).
+
+### How do I load several files or a JavaScript library?
+
+`evaluate` runs code in one global scope, so evaluate the files in order on
+the same runtime. Load assets with `rootBundle`:
+
+```dart
+import 'package:flutter/services.dart';
+
+runtime.evaluate(await rootBundle.loadString('assets/js/class_one.js'));
+runtime.evaluate(await rootBundle.loadString('assets/js/main.js'));
+```
+
+`import` and `require()` are not available. Bundle npm packages into a
+single script (for example an IIFE or UMD build from esbuild, Rollup or
+webpack) that defines its API on `globalThis`, and evaluate that file.
+
+### How do I clear everything a runtime has defined?
+
+Dispose it and create a new one:
+
+```dart
+runtime.dispose();
+runtime = getJavascriptRuntime();
+```
+
 ## Migrating from flutter_js
 
 1. Replace the dependency in `pubspec.yaml`:
 
    ```yaml
    dependencies:
-     flutter_js_runtime: ^1.0.1   # was: flutter_js
+     flutter_js_runtime: ^1.0.2   # was: flutter_js
    ```
 
 2. Replace the imports:
@@ -123,6 +165,11 @@ Class and function names are unchanged.
   value, while JavaScriptCore returns a native `JSValueRef` pointer. Use
   `stringResult`, or `runtime.convertValue<T>(result)`, when the code has to
   run on every platform.
+- **Android with Flutter 3.44 to 3.46**: apps that set
+  `android.builtInKotlin=true` in `gradle.properties` fail to build. This is
+  a limitation of those Flutter versions, fixed in Flutter 3.47; it affects
+  every plugin that uses built-in Kotlin. Upgrade Flutter, or keep
+  `android.builtInKotlin=false`.
 - **iOS uses JavaScriptCore** so apps follow App Store Review Guideline 4.7,
   which requires third-party code to run through WebKit or JavaScriptCore.
 

@@ -1,4 +1,6 @@
 // Keeps the code samples in README.md honest: each test mirrors one snippet.
+import 'dart:convert';
+
 import 'package:flutter_js_runtime/extensions/fetch.dart';
 import 'package:flutter_js_runtime/flutter_js_runtime.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -59,6 +61,35 @@ void main() {
         "sendMessage('greeting', JSON.stringify({name: 'Flutter'}));");
     expect(received.toString(), contains('Flutter'));
 
+    runtime.dispose();
+  });
+
+  test('README FAQ: call a JavaScript function with arguments', () {
+    final runtime = getJavascriptRuntime(xhr: false);
+    runtime.evaluate('function greet(name) { return "Hello, " + name; }');
+    final result = runtime.evaluate('greet(${jsonEncode('Flutter')})');
+    expect(result.stringResult, equals('Hello, Flutter'));
+    // jsonEncode keeps quotes and backslashes in the argument intact.
+    expect(runtime.evaluate('greet(${jsonEncode('a"b\\c')})').stringResult,
+        equals('Hello, a"b\\c'));
+    runtime.dispose();
+  });
+
+  test('README FAQ: files evaluated in order share the global scope', () {
+    final runtime = getJavascriptRuntime(xhr: false);
+    runtime.evaluate('class ClassOne { hello() { return "one"; } }');
+    runtime.evaluate('const two = new ClassOne();');
+    expect(runtime.evaluate('two.hello()').stringResult, equals('one'));
+    runtime.dispose();
+  });
+
+  test('README FAQ: a new runtime starts empty', () {
+    var runtime = getJavascriptRuntime(xhr: false);
+    runtime.evaluate('var leftover = 1;');
+    runtime.dispose();
+    runtime = getJavascriptRuntime(xhr: false);
+    expect(runtime.evaluate('typeof leftover').stringResult,
+        equals('undefined'));
     runtime.dispose();
   });
 

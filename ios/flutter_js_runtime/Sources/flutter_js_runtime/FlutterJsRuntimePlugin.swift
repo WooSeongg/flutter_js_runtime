@@ -32,14 +32,10 @@ public class FlutterJsRuntimePlugin: NSObject, FlutterPlugin {
                 }
 
                 let resultJsValue: JSValue = jsEngine.evaluateScript(command)
-                if convertTo != nil {
-                    if convertTo == "array" {
-                        result(resultJsValue.toArray())
-                    } else if convertTo == "object" {
-                        result(resultJsValue.toDictionary())
-                    } else {
-                        result(resultJsValue.toString())
-                    }
+                if convertTo == "array" {
+                    result(resultJsValue.toArray())
+                } else if convertTo == "object" {
+                    result(resultJsValue.toDictionary())
                 } else {
                     result(resultJsValue.toString())
                 }
