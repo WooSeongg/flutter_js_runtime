@@ -39,7 +39,11 @@ class QuickJsRuntime2 extends JavascriptRuntime {
   final int? memoryLimit;
 
   /// Message Port for event loop. Close it to stop dispatching event loop.
-  ReceivePort port = _TickPort();
+  ///
+  /// Every evaluate and function call posts a tick to it; each tick runs the
+  /// pending jobs (promise reactions), so `.then` and `await` continue
+  /// without calling [executePendingJob].
+  late ReceivePort port = _TickPort(_executePendingJob);
 
   /// Handler function to manage js module.
   final _JsModuleHandler? moduleHandler;
@@ -332,15 +336,23 @@ class QuickJsRuntime2 extends JavascriptRuntime {
 }
 
 /// The [QuickJsRuntime2.port]. Every evaluate and function call posts a tick
-/// to it. A plain [ReceivePort] buffers messages until somebody listens, and
+/// to it. Each tick runs [_onTick] (the runtime's pending jobs): QuickJS only
+/// runs promise reactions when asked to, and the dispatch loop that did this
+/// in flutter_qjs was disabled, so `.then` and `await` never continued
+/// unless something polled executePendingJob. The tick arrives from the event
+/// loop, never in the middle of a call between JavaScript and Dart.
+///
+/// A plain [ReceivePort] buffers messages until somebody listens, and
 /// nothing in this package does, so the ticks piled up forever. This port
 /// delivers ticks while it has a listener and drops them otherwise.
 class _TickPort extends Stream<dynamic> implements ReceivePort {
   final RawReceivePort _port = RawReceivePort();
   final StreamController<dynamic> _ticks = StreamController<dynamic>();
+  final void Function() _onTick;
 
-  _TickPort() {
+  _TickPort(this._onTick) {
     _port.handler = (dynamic message) {
+      _onTick();
       if (_ticks.hasListener) _ticks.add(message);
     };
   }

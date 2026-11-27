@@ -117,6 +117,64 @@ void main() {
     });
   });
 
+  testWidgets('.then runs after the script, without executePendingJob (#100)',
+      (tester) async {
+    await tester.runAsync(() async {
+      final runtime = getJavascriptRuntime(xhr: false);
+      final order = <String>[];
+      runtime.onMessage('order', (args) => order.add('$args'));
+      runtime.evaluate("Promise.resolve().then(() => sendMessage('order', '2'));"
+          "sendMessage('order', '1');");
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(order, ['1', '2']);
+      runtime.dispose();
+    });
+  });
+
+  testWidgets('await continues after setTimeout, without handlePromise (#112)',
+      (tester) async {
+    await tester.runAsync(() async {
+      for (final xhr in [false, true]) {
+        final runtime = getJavascriptRuntime(xhr: xhr);
+        final steps = <String>[];
+        runtime.onMessage('step', (args) => steps.add('$args'));
+        runtime.evaluate('''
+          (async () => {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            sendMessage('step', JSON.stringify('timeout'));
+            await Promise.resolve();
+            sendMessage('step', JSON.stringify('microtask'));
+          })();
+        ''');
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        expect(steps, ['timeout', 'microtask'], reason: 'xhr: $xhr');
+        runtime.dispose();
+      }
+    });
+  });
+
+  testWidgets('a Future returned by onMessage resolves the awaiting script',
+      (tester) async {
+    await tester.runAsync(() async {
+      final runtime = getJavascriptRuntime(xhr: false);
+      final got = <String>[];
+      runtime.onMessage('later', (args) async {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        return 41;
+      });
+      runtime.onMessage('got', (args) => got.add('$args'));
+      runtime.evaluate('''
+        (async () => {
+          const value = await sendMessage('later', '1');
+          sendMessage('got', JSON.stringify(value + 1));
+        })();
+      ''');
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      expect(got, ['42']);
+      runtime.dispose();
+    });
+  });
+
   testWidgets('QuickJS: a listener on the runtime port still gets ticks',
       (tester) async {
     final runtime = getJavascriptRuntime();
